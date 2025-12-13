@@ -1,6 +1,6 @@
-import Navbar from "./Navbar";
+import Navbar from "../Navbar";
 
-export default function Home() {
+export default function Transactions() {
   return (
     <div className="flex min-h-screen items-start justify-center bg-zinc-50 font-sans dark:bg-black">
       <Navbar />
