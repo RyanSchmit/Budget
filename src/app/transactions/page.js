@@ -2,6 +2,7 @@
 
 import Navbar from "../Navbar";
 import { useState } from "react";
+import { formatMoney } from "../format";
 
 export default function Transactions() {
   const [fileName, setFileName] = useState("");
@@ -101,7 +102,7 @@ export default function Transactions() {
                       <td className="px-4 py-3">{t.description}</td>
                       <td className="px-4 py-3">{t.category}</td>
                       <td className="px-4 py-3 text-right">
-                        ${t.amount.toFixed(2)}
+                        {formatMoney(t.amount.toFixed(2))}
                       </td>
                     </tr>
                   ))}

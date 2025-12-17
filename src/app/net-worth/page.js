@@ -2,10 +2,12 @@
 
 import Navbar from "../Navbar";
 import { useState } from "react";
+import MoneyInput from "../moneyInput";
 
 export default function NetWorth() {
-  // Add commas for dollar amounts
-  const [checking, setChecking] = useState("");
+  const [checkingRaw, setCheckingRaw] = useState("");
+  const [checkingValue, setCheckingValue] = useState(null);
+
   const [accounts, setAccounts] = useState([]);
 
   function addAccount() {
@@ -33,13 +35,16 @@ export default function NetWorth() {
 
             <label className="block mb-2">
               <span className="text-sm text-gray-300">Checking account</span>
-              <input
-                type="number"
-                step="0.01"
-                value={checking}
-                onChange={(e) => setChecking(e.target.value)}
-                placeholder="0.00"
-                className="mt-1 block w-full bg-black border border-gray-700 rounded-md px-3 py-2 text-white"
+
+              <MoneyInput
+                label=""
+                value={checkingValue}
+                onChange={(val) => {
+                  setCheckingValue(val);
+                  setCheckingRaw(val != null ? val.toString() : "");
+                }}
+                placeholder="$0.00"
+                className="mt-1"
               />
             </label>
 
@@ -70,10 +75,13 @@ export default function NetWorth() {
                     <input
                       type="number"
                       step="0.01"
+                      min="0"
                       value={acc.amount}
-                      onChange={(e) =>
-                        updateAccount(acc.id, "amount", e.target.value)
-                      }
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        const sanitized = v === "" ? "" : v.replace(/^-+/, "");
+                        updateAccount(acc.id, "amount", sanitized);
+                      }}
                       placeholder="0.00"
                       className="w-40 bg-black border border-gray-700 rounded-md px-3 py-2 text-white"
                     />
