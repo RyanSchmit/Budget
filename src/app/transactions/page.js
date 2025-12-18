@@ -7,6 +7,7 @@ import Papa from "papaparse";
 
 export default function Transactions() {
   const [transactions, setTransactions] = useState([]);
+  const [pendingTransactions, setPendingTransactions] = useState([]);
   const [fileName, setFileName] = useState("");
 
   const handleFileChange = (e) => {
@@ -14,28 +15,58 @@ export default function Transactions() {
     if (!file) return;
 
     setFileName(file.name);
-    parseCSV(file);
+    handleCSVUpload(file);
   };
 
-  const parseCSV = (file) => {
+  const handleCSVUpload = (file) => {
+    if (!(file instanceof File)) return;
+
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
       complete: ({ data }) => {
-        const parsed = data.map((row) => ({
-          id: crypto.randomUUID(),
-          date: row.Date || row.date || "",
-          description: row.Description || "",
-          category: "N/A",
-          amount: Number(
-            String(row.Debit || row.debit || "0").replace(/[$,]/g, "")
-          ),
-        }));
+        const parsed = data.map((row) => {
+          const debitRaw = row.Debit ?? row.debit ?? "";
+          const creditRaw = row.Credit ?? row.credit ?? "";
+          const fallbackRaw = row.Amount ?? row.amount ?? "";
+          const raw = debitRaw || creditRaw || fallbackRaw || "0";
 
-        // Replace or append — your choice
-        setTransactions(parsed);
+          // remove currency characters and commas, keep digits, dot and parentheses for negative
+          const cleaned = String(raw).replace(/[$,]/g, "").trim();
+          // remove parentheses for parsing but remember if they existed (accounting-style negative)
+          const hasParens = cleaned.includes("(") && cleaned.includes(")");
+          const numeric = Number(cleaned.replace(/[()]/g, "") || 0);
+
+          let amount = numeric;
+          if (debitRaw) {
+            amount = -Math.abs(numeric);
+          } else if (creditRaw) {
+            amount = Math.abs(numeric);
+          } else if (hasParens || String(raw).includes("-")) {
+            amount = -Math.abs(numeric);
+          } else {
+            amount = Math.abs(numeric);
+          }
+
+          return {
+            id: crypto.randomUUID(),
+            date: row.Date || row.date || "",
+            description: row.Description || "",
+            category: "N/A",
+            amount,
+          };
+        });
+
+        // ❗ Store temporarily
+        setPendingTransactions(parsed);
       },
     });
+  };
+
+  const handleAddTransactions = () => {
+    setTransactions((prev) => [...prev, ...pendingTransactions]);
+    setPendingTransactions([]); // clear buffer
+    setFileName("");
   };
 
   return (
@@ -62,6 +93,21 @@ export default function Transactions() {
               className="hidden"
               onChange={handleFileChange}
             />
+
+            <button
+              type="button"
+              disabled={pendingTransactions.length === 0}
+              onClick={handleAddTransactions}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium
+             disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Add
+            </button>
+            {pendingTransactions.length > 0 && (
+              <p className="text-sm text-gray-400">
+                {pendingTransactions.length} transactions ready to add
+              </p>
+            )}
           </div>
 
           <TransactionsTable transactions={transactions} />
