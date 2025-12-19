@@ -11,10 +11,8 @@ export default function CompoundInterestInputs() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      {/* Navbar */}
       <Navbar />
 
-      {/* Centered Content */}
       <div className="flex min-h-[calc(100vh-64px)] items-center justify-center px-4">
         <div className="w-full max-w-lg space-y-6 rounded-xl border border-gray-800 bg-gray-900 p-8 shadow-lg">
           <h2 className="text-center text-2xl font-semibold">
@@ -35,6 +33,7 @@ export default function CompoundInterestInputs() {
             onChange={setWeeklyContribution}
           />
 
+          {/* Instead ask for a percentage of stocks and bonds and calculate expected return based on that. */}
           <InputField
             label="Annual Interest Rate"
             suffix="%"
