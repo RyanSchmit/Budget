@@ -63,10 +63,35 @@ export default function Transactions() {
     });
   };
 
+  const handleSave = () => {
+    // Implement save logic here
+    console.log("Saving transactions:", transactions);
+  };
+
+  const handlePredict = () => {
+    // Implement predict logic here
+    console.log("Predicting categories for transactions:", transactions);
+  };
+
+  const getTransactionKey = (t) => `${t.date}|${t.description}|${t.amount}`;
+
+  const uniquePendingTransactions = pendingTransactions.filter(
+    (pending) =>
+      !transactions.some(
+        (existing) => getTransactionKey(existing) === getTransactionKey(pending)
+      )
+  );
+
   const handleAddTransactions = () => {
-    setTransactions((prev) => [...prev, ...pendingTransactions]);
-    setPendingTransactions([]); // clear buffer
+    setTransactions((prev) => [...prev, ...uniquePendingTransactions]);
+    setPendingTransactions([]);
     setFileName("");
+  };
+
+  const updateTransaction = (id, field, value) => {
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, [field]: value } : t))
+    );
   };
 
   return (
@@ -79,38 +104,68 @@ export default function Transactions() {
 
           {/* CSV Upload */}
           <div className="mt-4 flex items-center gap-4">
-            <label
-              htmlFor="csvFile"
-              className="cursor-pointer rounded-md bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/20"
-            >
-              {fileName || "Choose CSV"}
-            </label>
+            <div className="mt-4 flex items-center justify-between gap-12 w-full">
+              {/* LEFT: CSV + Add */}
+              <div className="flex items-center gap-6">
+                <label
+                  htmlFor="csvFile"
+                  className="cursor-pointer rounded-md bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/20"
+                >
+                  {fileName || "Choose CSV"}
+                </label>
 
-            <input
-              id="csvFile"
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={handleFileChange}
-            />
+                <input
+                  id="csvFile"
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
 
-            <button
-              type="button"
-              disabled={pendingTransactions.length === 0}
-              onClick={handleAddTransactions}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium
-             disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Add
-            </button>
-            {pendingTransactions.length > 0 && (
-              <p className="text-sm text-gray-400">
-                {pendingTransactions.length} transactions ready to add
-              </p>
-            )}
+                <button
+                  type="button"
+                  disabled={pendingTransactions.length === 0}
+                  onClick={handleAddTransactions}
+                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium
+                 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Add
+                </button>
+
+                {pendingTransactions.length > 0 && (
+                  <p className="text-sm text-gray-400">
+                    {pendingTransactions.length} ready
+                  </p>
+                )}
+              </div>
+
+              {/* RIGHT: Save + Predict */}
+              {transactions.length > 0 && (
+                <div className="flex items-center gap-6">
+                  <button
+                    type="button"
+                    className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium hover:bg-green-700"
+                    onClick={handleSave}
+                  >
+                    Save
+                  </button>
+
+                  <button
+                    type="button"
+                    className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium hover:bg-purple-700"
+                    onClick={handlePredict}
+                  >
+                    Predict
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
-          <TransactionsTable transactions={transactions} />
+          <TransactionsTable
+            transactions={transactions}
+            onUpdateTransaction={updateTransaction}
+          />
         </div>
       </main>
     </div>

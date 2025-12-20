@@ -11,15 +11,18 @@ export default function MoneyInput({
   className = "",
 }) {
   const [display, setDisplay] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
 
-  // 🔁 Sync when parent value changes
+  // Sync from parent ONLY when not editing
   useEffect(() => {
+    if (isEditing) return;
+
     if (value == null || Number.isNaN(value)) {
       setDisplay("");
     } else {
       setDisplay(formatMoney(value));
     }
-  }, [value]);
+  }, [value, isEditing]);
 
   return (
     <div className="w-full">
@@ -33,6 +36,12 @@ export default function MoneyInput({
         placeholder={placeholder}
         value={display}
         className={`h-10 w-full bg-black border border-gray-700 rounded-md px-3 text-white ${className}`}
+        onFocus={() => {
+          setIsEditing(true);
+          if (value != null && !Number.isNaN(value)) {
+            setDisplay(value.toString());
+          }
+        }}
         onChange={(e) => {
           const raw = e.target.value.replace(/[^0-9.]/g, "");
 
@@ -42,14 +51,13 @@ export default function MoneyInput({
           setDisplay(raw);
           onChange(raw === "" ? null : Number(raw));
         }}
-        onFocus={() => {
-          if (value != null) {
-            setDisplay(value.toString());
-          }
-        }}
         onBlur={() => {
+          setIsEditing(false);
+
           if (value != null && !Number.isNaN(value)) {
             setDisplay(formatMoney(value));
+          } else {
+            setDisplay("");
           }
         }}
       />
