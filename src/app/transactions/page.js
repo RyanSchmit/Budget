@@ -5,6 +5,7 @@ import Navbar from "../Navbar";
 import TransactionsTable from "../transactions/table";
 import Papa from "papaparse";
 import { useEffect } from "react";
+import { rulePredict } from "../transactions/predictions";
 
 export default function Transactions() {
   const [transactions, setTransactions] = useState([]);
@@ -17,6 +18,22 @@ export default function Transactions() {
     "College",
     "Income",
     "Trips",
+    "Utilities",
+    "Energy Drink",
+    "Groceries",
+    "Bars",
+    "Golf",
+    "Transportation",
+    "Alcohol",
+    "Snacks",
+    "Subscriptions",
+    "Sports Games",
+    "Traffic Tickets",
+    "Gym",
+    "Gambling",
+    "Clothes",
+    "Online Shopping",
+    "Books",
     "N/A",
   ]);
 
@@ -103,9 +120,26 @@ export default function Transactions() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [transactions, handleSave]);
 
-  const handlePredict = () => {
-    // Implement predict logic here
-    console.log("Predicting categories for transactions:", transactions);
+  const handlePredict = async () => {
+    if (!transactions || transactions.length === 0) return;
+
+    try {
+      const preds = await Promise.all(
+        transactions.map(async (t) => {
+          const res = rulePredict?.(t.description);
+          return res instanceof Promise ? res : res;
+        })
+      );
+
+      setTransactions((prev) =>
+        prev.map((t, i) => ({
+          ...t,
+          category: preds[i] ?? t.category ?? "N/A",
+        }))
+      );
+    } catch (err) {
+      console.error("Prediction error:", err);
+    }
   };
 
   const getTransactionKey = (t) => `${t.date}|${t.description}|${t.amount}`;
