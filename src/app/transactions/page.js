@@ -10,6 +10,7 @@ export default function Transactions() {
   const [transactions, setTransactions] = useState([]);
   const [pendingTransactions, setPendingTransactions] = useState([]);
   const [fileName, setFileName] = useState("");
+  const [selectedIds, setSelectedIds] = useState(new Set());
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -114,14 +115,30 @@ export default function Transactions() {
     setFileName("");
   };
 
-  const updateTransaction = (id, field, value) => {
+  const onUpdateTransaction = (id, field, value) => {
     setTransactions((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, [field]: value } : t))
+      prev.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              [field]: value,
+            }
+          : t
+      )
     );
   };
 
-  const deleteTransaction = (id) => {
-    setTransactions((prev) => prev.filter((t) => t.id !== id));
+  const handleDeleteSelected = () => {
+    setTransactions((prev) => prev.filter((t) => !selectedIds.has(t.id)));
+    setSelectedIds(new Set());
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   };
 
   return (
@@ -169,23 +186,33 @@ export default function Transactions() {
                 )}
               </div>
 
-              {/* RIGHT: Save + Predict */}
+              {/* RIGHT: Delete, Save, + Predict */}
               {transactions.length > 0 && (
                 <div className="flex items-center gap-6">
                   <button
                     type="button"
-                    className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium hover:bg-green-700"
                     onClick={handleSave}
+                    className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium hover:bg-green-700"
                   >
-                    Save <span className="ml-2 text-xs opacity-70">⌘S</span>
+                    Save
                   </button>
 
                   <button
                     type="button"
-                    className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium hover:bg-purple-700"
                     onClick={handlePredict}
+                    className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium hover:bg-purple-700"
                   >
                     Predict
+                  </button>
+                  <button
+                    type="button"
+                    disabled={selectedIds.size === 0}
+                    onClick={handleDeleteSelected}
+                    className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium
+                 disabled:opacity-50 disabled:cursor-not-allowed
+                 hover:bg-red-700"
+                  >
+                    Delete
                   </button>
                 </div>
               )}
@@ -194,8 +221,9 @@ export default function Transactions() {
 
           <TransactionsTable
             transactions={transactions}
-            onUpdateTransaction={updateTransaction}
-            onDeleteTransaction={deleteTransaction}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelect}
+            onUpdateTransaction={onUpdateTransaction}
           />
         </div>
       </main>

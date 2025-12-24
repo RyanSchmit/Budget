@@ -5,8 +5,9 @@ import { useState, useMemo } from "react";
 
 export default function TransactionsTable({
   transactions,
+  selectedIds,
+  onToggleSelect,
   onUpdateTransaction,
-  onDeleteTransaction,
 }) {
   const [sortConfig, setSortConfig] = useState({
     key: null,
@@ -66,7 +67,7 @@ export default function TransactionsTable({
         <table className="min-w-full divide-y divide-gray-700 text-sm">
           <thead className="sticky top-0 z-10 bg-gray-900">
             <tr>
-              <th className="px-4 py-3 text-center">Delete</th>
+              <th className="px-4 py-3 w-10"></th>
               <th
                 onClick={() => handleSort("date")}
                 className="px-4 py-3 text-left cursor-pointer select-none"
@@ -116,20 +117,16 @@ export default function TransactionsTable({
           <tbody className="divide-y divide-gray-800 bg-black">
             {sortedTransactions.map((t) => (
               <tr key={t.id} className="hover:bg-white/5">
-                {/* Delete */}
+                {/* Select */}
                 <td className="px-4 py-2 text-center">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (confirm("Delete this transaction?")) {
-                        onDeleteTransaction(t.id);
-                      }
-                    }}
-                    className="rounded-md bg-red-600 px-2 py-1 text-xs font-medium hover:bg-red-700"
-                  >
-                    Delete
-                  </button>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(t.id)}
+                    onChange={() => onToggleSelect(t.id)}
+                    className="accent-red-600"
+                  />
                 </td>
+
                 {/* Date */}
                 <td className="px-4 py-2 whitespace-nowrap">
                   <input
