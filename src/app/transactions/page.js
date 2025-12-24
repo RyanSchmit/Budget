@@ -11,6 +11,7 @@ export default function Transactions() {
   const [pendingTransactions, setPendingTransactions] = useState([]);
   const [fileName, setFileName] = useState("");
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -141,6 +142,10 @@ export default function Transactions() {
     });
   };
 
+  const filteredTransactions = transactions.filter((t) =>
+    t.description.toLowerCase().includes(searchQuery.trim().toLowerCase())
+  );
+
   return (
     <div className="min-h-screen bg-black font-sans text-white">
       <Navbar />
@@ -219,8 +224,41 @@ export default function Transactions() {
             </div>
           </div>
 
+          {/* Search filter */}
+          {transactions.length > 0 && (
+            <div className="mt-4">
+              {/* Input row */}
+              <div className="flex items-center gap-4">
+                <input
+                  type="text"
+                  placeholder="Search description…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-72 rounded-md border border-gray-700 bg-black px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="text-sm text-gray-400 hover:text-white"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {/* Empty search result message */}
+              {filteredTransactions.length === 0 && searchQuery && (
+                <p className="mt-2 text-sm text-gray-400">
+                  No transactions match your search
+                </p>
+              )}
+            </div>
+          )}
+
           <TransactionsTable
-            transactions={transactions}
+            transactions={filteredTransactions}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
             onUpdateTransaction={onUpdateTransaction}
