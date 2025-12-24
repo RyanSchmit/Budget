@@ -6,6 +6,7 @@ import { useState, useMemo } from "react";
 export default function TransactionsTable({
   transactions,
   onUpdateTransaction,
+  onDeleteTransaction,
 }) {
   const [sortConfig, setSortConfig] = useState({
     key: null,
@@ -34,12 +35,28 @@ export default function TransactionsTable({
     if (!sortConfig.key) return transactions;
 
     return [...transactions].sort((a, b) => {
-      const aVal = a[sortConfig.key];
-      const bVal = b[sortConfig.key];
+      let aVal = a[sortConfig.key];
+      let bVal = b[sortConfig.key];
 
-      if (aVal < bVal) return sortConfig.direction === "desc" ? 1 : -1;
-      if (aVal > bVal) return sortConfig.direction === "desc" ? -1 : 1;
-      return 0;
+      // ✅ Date sorting: most recent → least recent
+      if (sortConfig.key === "date") {
+        const aDate = new Date(aVal);
+        const bDate = new Date(bVal);
+
+        return sortConfig.direction === "desc"
+          ? bDate - aDate // most recent first
+          : aDate - bDate;
+      }
+
+      // ✅ Numeric sorting (amount)
+      if (typeof aVal === "number" && typeof bVal === "number") {
+        return sortConfig.direction === "desc" ? bVal - aVal : aVal - bVal;
+      }
+
+      // ✅ String sorting (description, category)
+      return sortConfig.direction === "desc"
+        ? String(bVal).localeCompare(String(aVal))
+        : String(aVal).localeCompare(String(bVal));
     });
   }, [transactions, sortConfig]);
 
@@ -49,6 +66,7 @@ export default function TransactionsTable({
         <table className="min-w-full divide-y divide-gray-700 text-sm">
           <thead className="sticky top-0 z-10 bg-gray-900">
             <tr>
+              <th className="px-4 py-3 text-center">Delete</th>
               <th
                 onClick={() => handleSort("date")}
                 className="px-4 py-3 text-left cursor-pointer select-none"
@@ -98,6 +116,20 @@ export default function TransactionsTable({
           <tbody className="divide-y divide-gray-800 bg-black">
             {sortedTransactions.map((t) => (
               <tr key={t.id} className="hover:bg-white/5">
+                {/* Delete */}
+                <td className="px-4 py-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm("Delete this transaction?")) {
+                        onDeleteTransaction(t.id);
+                      }
+                    }}
+                    className="rounded-md bg-red-600 px-2 py-1 text-xs font-medium hover:bg-red-700"
+                  >
+                    Delete
+                  </button>
+                </td>
                 {/* Date */}
                 <td className="px-4 py-2 whitespace-nowrap">
                   <input

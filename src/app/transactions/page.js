@@ -4,6 +4,7 @@ import { useState } from "react";
 import Navbar from "../Navbar";
 import TransactionsTable from "../transactions/table";
 import Papa from "papaparse";
+import { useEffect } from "react";
 
 export default function Transactions() {
   const [transactions, setTransactions] = useState([]);
@@ -68,6 +69,31 @@ export default function Transactions() {
     console.log("Saving transactions:", transactions);
   };
 
+  // ⌨️ Keyboard shortcut: Ctrl+S / Cmd+S to Save
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // 🚫 Ignore shortcuts while typing in inputs
+      if (["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) {
+        return;
+      }
+
+      const isMac = navigator.platform.toUpperCase().includes("MAC");
+      const isSave =
+        (isMac && e.metaKey && e.key === "s") ||
+        (!isMac && e.ctrlKey && e.key === "s");
+
+      if (isSave) {
+        e.preventDefault();
+        if (transactions.length > 0) {
+          handleSave();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [transactions, handleSave]);
+
   const handlePredict = () => {
     // Implement predict logic here
     console.log("Predicting categories for transactions:", transactions);
@@ -92,6 +118,10 @@ export default function Transactions() {
     setTransactions((prev) =>
       prev.map((t) => (t.id === id ? { ...t, [field]: value } : t))
     );
+  };
+
+  const deleteTransaction = (id) => {
+    setTransactions((prev) => prev.filter((t) => t.id !== id));
   };
 
   return (
@@ -147,7 +177,7 @@ export default function Transactions() {
                     className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium hover:bg-green-700"
                     onClick={handleSave}
                   >
-                    Save
+                    Save <span className="ml-2 text-xs opacity-70">⌘S</span>
                   </button>
 
                   <button
@@ -165,6 +195,7 @@ export default function Transactions() {
           <TransactionsTable
             transactions={transactions}
             onUpdateTransaction={updateTransaction}
+            onDeleteTransaction={deleteTransaction}
           />
         </div>
       </main>
