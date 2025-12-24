@@ -8,6 +8,8 @@ export default function TransactionsTable({
   selectedIds,
   onToggleSelect,
   onUpdateTransaction,
+  categories,
+  setCategories,
 }) {
   const [sortConfig, setSortConfig] = useState({
     key: null,
@@ -152,15 +154,60 @@ export default function TransactionsTable({
                 </td>
 
                 {/* Category */}
-                <td className="px-4 py-2">
-                  <input
-                    type="text"
-                    value={t.category}
-                    onChange={(e) =>
-                      onUpdateTransaction(t.id, "category", e.target.value)
-                    }
-                    className="w-full bg-transparent border border-gray-700 rounded px-2 py-1 text-sm"
-                  />
+                <td className="px-4 py-2" style={{ width: "16%" }}>
+                  {t.category === "__NEW__" ? (
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="New category"
+                      className="w-full bg-transparent border border-gray-700 rounded px-2 py-1 text-sm"
+                      onBlur={(e) => {
+                        const value = e.target.value.trim();
+
+                        if (!value) {
+                          onUpdateTransaction(t.id, "category", "N/A");
+                          return;
+                        }
+
+                        const normalized = value.toLowerCase();
+
+                        setCategories((prev) => {
+                          const exists = prev.some(
+                            (c) => c.toLowerCase() === normalized
+                          );
+
+                          if (exists) return prev;
+
+                          return [...prev, value].sort();
+                        });
+
+                        onUpdateTransaction(t.id, "category", value);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.target.blur();
+                      }}
+                    />
+                  ) : (
+                    <select
+                      value={t.category}
+                      onChange={(e) => {
+                        if (e.target.value === "__NEW__") {
+                          onUpdateTransaction(t.id, "category", "__NEW__");
+                        } else {
+                          onUpdateTransaction(t.id, "category", e.target.value);
+                        }
+                      }}
+                      className="w-full bg-black border border-gray-700 rounded px-2 py-1 text-sm"
+                    >
+                      {categories.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+
+                      <option value="__NEW__">+ Add new…</option>
+                    </select>
+                  )}
                 </td>
 
                 {/* Amount */}

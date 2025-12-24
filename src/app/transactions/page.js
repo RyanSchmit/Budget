@@ -12,6 +12,13 @@ export default function Transactions() {
   const [fileName, setFileName] = useState("");
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [searchQuery, setSearchQuery] = useState("");
+  const [categories, setCategories] = useState([
+    "Restaurants",
+    "College",
+    "Income",
+    "Trips",
+    "N/A",
+  ]);
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -194,6 +201,8 @@ export default function Transactions() {
               {/* RIGHT: Delete, Save, + Predict */}
               {transactions.length > 0 && (
                 <div className="flex items-center gap-6">
+                  {/* disable the button if it does not 
+                  differ from the transactions from the database */}
                   <button
                     type="button"
                     onClick={handleSave}
@@ -262,6 +271,8 @@ export default function Transactions() {
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
             onUpdateTransaction={onUpdateTransaction}
+            categories={categories}
+            setCategories={setCategories}
           />
         </div>
       </main>
