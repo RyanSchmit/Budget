@@ -301,6 +301,10 @@ export default function Transactions() {
                 ))}
               </select>
 
+              <p className="text-sm text-gray-400">
+                {filteredTransactions.length} results
+              </p>
+
               {/* Clear Filters */}
               {(searchQuery || categoryFilter !== "ALL") && (
                 <button
