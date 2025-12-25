@@ -1,9 +1,11 @@
 const rules = [
   {
-    keywords: ["mcdonald", "Panda Express", "Hot Chicken"],
+    keywords: ["mcdonald", "Panda Express", "Hot Chicken", "Chick-Fil-A"],
     category: "Restaurants",
   },
-  { keywords: ["uber", "lyft"], category: "Transportation" },
+  { keywords: ["walmart", "target", "costco"], category: "Groceries" },
+  { keywords: ["Donut"], category: "Snacks" },
+  { keywords: ["uber", "lyft", "MTA"], category: "Transportation" },
   { keywords: ["gas"], category: "Gas" },
   { keywords: ["coffee", "Campus Market"], category: "Energy Drink" },
   {

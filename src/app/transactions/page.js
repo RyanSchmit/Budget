@@ -13,6 +13,7 @@ export default function Transactions() {
   const [fileName, setFileName] = useState("");
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [categories, setCategories] = useState([
     "Restaurants",
     "College",
@@ -183,9 +184,16 @@ export default function Transactions() {
     });
   };
 
-  const filteredTransactions = transactions.filter((t) =>
-    t.description.toLowerCase().includes(searchQuery.trim().toLowerCase())
-  );
+  const filteredTransactions = transactions.filter((t) => {
+    const matchesSearch = t.description
+      .toLowerCase()
+      .includes(searchQuery.trim().toLowerCase());
+
+    const matchesCategory =
+      categoryFilter === "ALL" || t.category === categoryFilter;
+
+    return matchesSearch && matchesCategory;
+  });
 
   return (
     <div className="min-h-screen bg-black font-sans text-white">
@@ -267,35 +275,43 @@ export default function Transactions() {
             </div>
           </div>
 
-          {/* Search filter */}
+          {/* Search + Category filter */}
           {transactions.length > 0 && (
-            <div className="mt-4">
-              {/* Input row */}
-              <div className="flex items-center gap-4">
-                <input
-                  type="text"
-                  placeholder="Search description…"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-72 rounded-md border border-gray-700 bg-black px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
+            <div className="flex items-center gap-4 mt-4">
+              {/* Search */}
+              <input
+                type="text"
+                placeholder="Search description…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-72 rounded-md border border-gray-700 bg-black px-3 py-2 text-sm text-white"
+              />
 
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery("")}
-                    className="text-sm text-gray-400 hover:text-white"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
+              {/* Category Filter */}
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="rounded-md border border-gray-700 bg-black px-3 py-2 text-sm"
+              >
+                <option value="ALL">All Categories</option>
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
 
-              {/* Empty search result message */}
-              {filteredTransactions.length === 0 && searchQuery && (
-                <p className="mt-2 text-sm text-gray-400">
-                  No transactions match your search
-                </p>
+              {/* Clear Filters */}
+              {(searchQuery || categoryFilter !== "ALL") && (
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setCategoryFilter("ALL");
+                  }}
+                  className="text-sm text-gray-400 hover:text-white"
+                >
+                  Clear
+                </button>
               )}
             </div>
           )}
