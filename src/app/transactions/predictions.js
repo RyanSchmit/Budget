@@ -1,13 +1,28 @@
 const rules = [
   {
-    keywords: ["mcdonald", "Panda Express", "Hot Chicken", "Chick-Fil-A"],
+    keywords: [
+      "mcdonald",
+      "Panda Express",
+      "Hot Chicken",
+      "Chick-Fil-A",
+      "Mexican food",
+      "Pizza",
+      "Restaurant",
+      "BBQ",
+    ],
     category: "Restaurants",
   },
-  { keywords: ["walmart", "target", "costco"], category: "Groceries" },
+  {
+    keywords: ["walmart", "target", "costco", "Grocery"],
+    category: "Groceries",
+  },
   { keywords: ["Donut"], category: "Snacks" },
   { keywords: ["uber", "lyft", "MTA"], category: "Transportation" },
   { keywords: ["gas"], category: "Gas" },
-  { keywords: ["coffee", "Campus Market"], category: "Energy Drink" },
+  {
+    keywords: ["coffee", "Campus Market", "Starbucks"],
+    category: "Energy Drink",
+  },
   {
     keywords: [
       "payroll",
@@ -19,9 +34,12 @@ const rules = [
     category: "Income",
   },
   {
-    keywords: ["Monthly Service Fee", "Spotify", "Audible"],
+    keywords: ["Monthly Service Fee", "Spotify", "APPLE.COM/BILL"],
     category: "Subscriptions",
   },
+  { keywords: ["Audible", "books"], category: "Books" },
+  { keywords: ["Pub"], category: "Bar" },
+  { keywords: ["Golf"], category: "Golf" },
 ];
 
 export const rulePredict = (description, amount) => {

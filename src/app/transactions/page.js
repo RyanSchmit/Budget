@@ -195,6 +195,24 @@ export default function Transactions() {
     return matchesSearch && matchesCategory;
   });
 
+  const allVisibleSelected =
+    filteredTransactions.length > 0 &&
+    filteredTransactions.every((t) => selectedIds.has(t.id));
+
+  const handleSelectAll = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+
+      if (allVisibleSelected) {
+        filteredTransactions.forEach((t) => next.delete(t.id));
+      } else {
+        filteredTransactions.forEach((t) => next.add(t.id));
+      }
+
+      return next;
+    });
+  };
+
   return (
     <div className="min-h-screen bg-black font-sans text-white">
       <Navbar />
@@ -323,8 +341,10 @@ export default function Transactions() {
           <TransactionsTable
             transactions={filteredTransactions}
             selectedIds={selectedIds}
-            onToggleSelect={toggleSelect}
             onUpdateTransaction={onUpdateTransaction}
+            onToggleSelect={toggleSelect}
+            onToggleSelectAll={handleSelectAll}
+            allVisibleSelected={allVisibleSelected}
             categories={categories}
             setCategories={setCategories}
           />

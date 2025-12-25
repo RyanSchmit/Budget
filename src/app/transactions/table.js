@@ -6,8 +6,10 @@ import { useState, useMemo } from "react";
 export default function TransactionsTable({
   transactions,
   selectedIds,
-  onToggleSelect,
   onUpdateTransaction,
+  onToggleSelect,
+  onToggleSelectAll,
+  allVisibleSelected,
   categories,
   setCategories,
 }) {
@@ -69,7 +71,23 @@ export default function TransactionsTable({
         <table className="min-w-full divide-y divide-gray-700 text-sm">
           <thead className="sticky top-0 z-10 bg-gray-900">
             <tr>
-              <th className="px-4 py-3 w-10"></th>
+              <th className="px-4 py-3 w-10 text-center">
+                <input
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  ref={(el) => {
+                    if (!el) return;
+
+                    const someSelected =
+                      transactions.some((t) => selectedIds.has(t.id)) &&
+                      !allVisibleSelected;
+
+                    el.indeterminate = someSelected;
+                  }}
+                  onChange={onToggleSelectAll}
+                  className="accent-red-600"
+                />
+              </th>
               <th
                 onClick={() => handleSort("date")}
                 className="px-4 py-3 text-left cursor-pointer select-none"
