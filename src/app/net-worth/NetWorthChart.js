@@ -16,7 +16,7 @@ export default function NetWorthChart({ data }) {
 
       {data.length > 1 ? (
         <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={data}>
+          <LineChart data={data} margin={{ right: 50 }}>
             <XAxis dataKey="date" stroke="#9CA3AF" />
             <YAxis
               stroke="#9CA3AF"

@@ -17,6 +17,8 @@ export default function NetWorth() {
 
   // 🔑 Single source of truth for chart data
   const [history, setHistory] = useState([]);
+  const [savedHistory, setSavedHistory] = useState([]);
+  const [derivedHistory, setDerivedHistory] = useState([]);
 
   /* -------------------- Totals -------------------- */
 
@@ -69,22 +71,48 @@ export default function NetWorth() {
 
   // ✅ Save ONLY when button is clicked
   const saveNetWorth = () => {
-    const date = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    const date = new Date().toISOString().split("T")[0];
 
-    setHistory((prev) => {
-      if (prev.length && prev[prev.length - 1].value === netWorth) {
+    setSavedHistory((prev) => {
+      const existing = prev.find((h) => h.date === date);
+
+      if (existing && existing.value === netWorth) {
         return prev;
       }
 
-      return [...prev, { date, value: netWorth }];
+      // Replace if same date exists
+      const filtered = prev.filter((h) => h.date !== date);
+
+      return [...filtered, { date, value: netWorth }];
     });
   };
 
   // 🔁 Work backwards from transactions
   const workBackwards = () => {
-    const derivedHistory = deriveNetWorthHistory(transactions, netWorth);
-    setHistory(derivedHistory);
+    const derived = deriveNetWorthHistory(transactions, netWorth);
+    setDerivedHistory(derived);
   };
+
+  function mergeHistories(saved, derived) {
+    const map = new Map();
+
+    // Start with derived history
+    for (const item of derived) {
+      map.set(item.date, item.value);
+    }
+
+    // Saved snapshots override derived values
+    for (const item of saved) {
+      map.set(item.date, item.value);
+    }
+
+    // Convert back to sorted array
+    return Array.from(map.entries())
+      .map(([date, value]) => ({ date, value }))
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+  }
+
+  const mergedHistory = mergeHistories(savedHistory, derivedHistory);
 
   /* -------------------- Render -------------------- */
 
@@ -95,7 +123,7 @@ export default function NetWorth() {
       {/* pt-20 prevents navbar overlap */}
       <main className="flex-1 w-full flex flex-col items-center gap-10 bg-black pt-20 px-4">
         {/* Assets / Liabilities */}
-        <div className="flex flex-col lg:flex-row gap-6 w-full max-w-7xl">
+        <div className="flex flex-col lg:flex-row gap-6 w-full max-w-7xl pt-6">
           <FinancialSection
             title="Assets"
             primaryLabel="Checking account"
@@ -155,8 +183,8 @@ export default function NetWorth() {
         </div>
 
         {/* Chart */}
-        <div className="w-full max-w-4xl">
-          <NetWorthChart data={history} />
+        <div className="w-full max-w-4xl pb-8 pr-4 sm:pr-6">
+          <NetWorthChart data={mergedHistory} />
         </div>
       </main>
     </div>
