@@ -1,9 +1,10 @@
 "use client";
 
 import Navbar from "../Navbar";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import FinancialSection from "./Balances";
 import { formatMoney } from "../format";
+import NetWorthChart from "./NetWorthChart";
 
 export default function NetWorth() {
   const [checkingValue, setCheckingValue] = useState(null);
@@ -11,6 +12,8 @@ export default function NetWorth() {
 
   const [accounts, setAccounts] = useState([]);
   const [liabilities, setLiabilities] = useState([]);
+
+  const [history, setHistory] = useState([]);
 
   const assetsTotal =
     (checkingValue || 0) +
@@ -65,17 +68,30 @@ export default function NetWorth() {
 
   const netWorth = assetsTotal - liabilitiesTotal;
 
+  useEffect(() => {
+    const date = new Date().toLocaleDateString();
+
+    setHistory((prev) => {
+      if (prev.length && prev[prev.length - 1].value === netWorth) {
+        return prev;
+      }
+
+      return [...prev, { date, value: netWorth }];
+    });
+  }, [netWorth]);
+
   return (
     <div className="min-h-screen bg-black font-sans text-white flex flex-col">
       <Navbar />
 
-      <main className="flex-1 flex w-full flex-col items-center justify-center gap-8 bg-black">
-        <div className="flex gap-6 justify-center w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+      <main className="flex-1 w-full flex flex-col items-center gap-10 bg-black pt-20 px-4">
+        {/* Assets / Liabilities */}
+        <div className="flex flex-col lg:flex-row gap-6 w-full max-w-7xl">
           <FinancialSection
             title="Assets"
             primaryLabel="Checking account"
             primaryValue={checkingValue}
-            onPrimaryChange={(val) => setCheckingValue(val)}
+            onPrimaryChange={setCheckingValue}
             items={accounts}
             addItem={addAccount}
             updateItem={updateAccount}
@@ -87,7 +103,7 @@ export default function NetWorth() {
             title="Liabilities"
             primaryLabel="Credit card balance"
             primaryValue={creditCardValue}
-            onPrimaryChange={(val) => setCreditCardValue(val)}
+            onPrimaryChange={setCreditCardValue}
             items={liabilities}
             addItem={addLiability}
             updateItem={updateLiability}
@@ -96,7 +112,16 @@ export default function NetWorth() {
             emptyText="No liabilities added."
           />
         </div>
-        <h1>NetWorth: {formatMoney(netWorth)}</h1>
+
+        {/* Net Worth Value */}
+        <h1 className="text-3xl font-bold">
+          Net Worth: {formatMoney(netWorth)}
+        </h1>
+
+        {/* Chart */}
+        <div className="w-full max-w-4xl">
+          <NetWorthChart data={history} />
+        </div>
       </main>
     </div>
   );
