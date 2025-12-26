@@ -13,6 +13,9 @@ export default function Transactions() {
   const [fileName, setFileName] = useState("");
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [searchQuery, setSearchQuery] = useState("");
+  const [showDateFilter, setShowDateFilter] = useState(false);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [categories, setCategories] = useState([
     "Restaurants",
@@ -185,14 +188,21 @@ export default function Transactions() {
   };
 
   const filteredTransactions = transactions.filter((t) => {
+    // 🔍 Description search
     const matchesSearch = t.description
       .toLowerCase()
       .includes(searchQuery.trim().toLowerCase());
 
+    // 🏷️ Category
     const matchesCategory =
       categoryFilter === "ALL" || t.category === categoryFilter;
 
-    return matchesSearch && matchesCategory;
+    // 📅 Date range
+    const txDate = new Date(t.date);
+    const afterStart = startDate ? txDate >= new Date(startDate) : true;
+    const beforeEnd = endDate ? txDate <= new Date(endDate) : true;
+
+    return matchesSearch && matchesCategory && afterStart && beforeEnd;
   });
 
   const allVisibleSelected =
@@ -318,6 +328,39 @@ export default function Transactions() {
                   </option>
                 ))}
               </select>
+
+              {/* Date Filter Toggle */}
+              <button
+                type="button"
+                onClick={() => setShowDateFilter((p) => !p)}
+                className="rounded-md bg-gray-700 px-4 py-2 text-sm hover:bg-gray-600"
+              >
+                {showDateFilter ? "Hide Dates" : "Filter by Date"}
+              </button>
+
+              {showDateFilter && (
+                <div className="mt-3 flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-gray-400">From</label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="rounded-md border border-gray-700 bg-black px-2 py-1 text-sm"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-gray-400">To</label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="rounded-md border border-gray-700 bg-black px-2 py-1 text-sm"
+                    />
+                  </div>
+                </div>
+              )}
 
               <p className="text-sm text-gray-400">
                 {filteredTransactions.length} results
