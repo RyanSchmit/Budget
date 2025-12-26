@@ -16,6 +16,7 @@ const rules = [
       "In-N-Out",
       "Diner",
       "Sushi",
+      "Taco",
     ],
     category: "Restaurants",
   },
@@ -24,7 +25,10 @@ const rules = [
     category: "Groceries",
   },
   { keywords: ["Donut"], category: "Snacks" },
-  { keywords: ["uber", "lyft", "MTA", "rail"], category: "Transportation" },
+  {
+    keywords: ["uber", "lyft", "MTA", "rail", "flix"],
+    category: "Transportation",
+  },
   { keywords: ["gas"], category: "Gas" },
   {
     keywords: [
@@ -33,6 +37,7 @@ const rules = [
       "Starbucks",
       "Espresso",
       "UU MARKET",
+      "cafe",
     ],
     category: "Energy Drink",
   },
@@ -43,6 +48,7 @@ const rules = [
       "CalMatters",
       "Mobile Deposit",
       "Interest Payment",
+      "Deposit",
     ],
     category: "Income",
   },
@@ -51,9 +57,11 @@ const rules = [
     category: "Subscriptions",
   },
   { keywords: ["Audible", "books"], category: "Books" },
-  { keywords: ["Pub"], category: "Bar" },
+  { keywords: ["Pub", "Brew", "Brewing"], category: "Bar" },
   { keywords: ["Golf"], category: "Golf" },
-  { keywords: ["BEVERAGES & MOR"], category: "Alcohol" },
+  { keywords: ["BEVERAGES & MOR", "Liquor"], category: "Alcohol" },
+  { keywords: ["Field", "Stadium"], category: "Sports Games" },
+  { keywords: ["fines"], category: "Traffic Tickets" },
 ];
 
 export const rulePredict = (description, amount) => {
@@ -62,6 +70,18 @@ export const rulePredict = (description, amount) => {
     if (rule.keywords.some((k) => text.includes(String(k).toLowerCase()))) {
       return rule.category;
     }
+  }
+  if (
+    text.includes(String("7-ELEVEN").toLowerCase()) &&
+    Math.abs(amount) < 10
+  ) {
+    return "Energy Drink";
+  }
+  if (
+    text.includes(String("7-ELEVEN").toLowerCase()) &&
+    Math.abs(amount) >= 10
+  ) {
+    return "Alcohol";
   }
   return "N/A";
 };

@@ -127,7 +127,7 @@ export default function Transactions() {
     try {
       const preds = await Promise.all(
         transactions.map(async (t) => {
-          const res = rulePredict?.(t.description);
+          const res = rulePredict?.(t.description, t.amount);
           return res instanceof Promise ? res : res;
         })
       );
