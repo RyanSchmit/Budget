@@ -26,6 +26,12 @@ export default function Navbar() {
               Transactions
             </Link>
             <Link
+              href="/insights"
+              className="text-sm font-medium text-zinc-700 hover:text-black dark:text-zinc-300 dark:hover:text-zinc-50 px-3 py-1 rounded"
+            >
+              Insights
+            </Link>
+            <Link
               href="/goals"
               className="text-sm font-medium text-zinc-700 hover:text-black dark:text-zinc-300 dark:hover:text-zinc-50 px-3 py-1 rounded"
             >

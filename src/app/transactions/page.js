@@ -94,10 +94,31 @@ export default function Transactions() {
     });
   };
 
-  const handleSave = () => {
-    // Implement save logic here
-    console.log("Saving transactions:", transactions);
-  };
+  function handleSave() {
+    const filename = "transactions.json";
+    const array = transactions;
+    // 1. Convert the array to a JSON string (pretty-printed with 4 spaces for readability).
+    const jsonString = JSON.stringify(array, null, 4);
+
+    // 2. Create a Blob (Binary Large Object) from the JSON string.
+    const blob = new Blob([jsonString], { type: "application/json" });
+
+    // 3. Create a temporary URL for the Blob.
+    const url = URL.createObjectURL(blob);
+
+    // 4. Create an anchor element to trigger the download.
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename; // Set the file name for the download.
+
+    // 5. Append the anchor to the document body and simulate a click.
+    document.body.appendChild(a);
+    a.click();
+
+    // 6. Clean up: remove the anchor and revoke the temporary URL.
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 
   // ⌨️ Keyboard shortcut: Ctrl+S / Cmd+S to Save
   useEffect(() => {
