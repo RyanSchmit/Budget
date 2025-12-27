@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import {
   LineChart,
   Line,
@@ -10,12 +11,44 @@ import {
 } from "recharts";
 
 export default function NetWorthChart({ data }) {
-  return (
-    <section className="w-full bg-gray-900 p-6 rounded-md shadow-md">
-      <h2 className="text-xl font-semibold mb-4">Net Worth Over Time</h2>
+  const [fullscreen, setFullscreen] = useState(false);
 
+  // Prevent background scrolling when fullscreen
+  useEffect(() => {
+    if (fullscreen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [fullscreen]);
+
+  return (
+    <section
+      className={`bg-gray-900 shadow-md transition-all duration-300 ${
+        fullscreen
+          ? "fixed inset-0 z-50 p-6 rounded-none"
+          : "w-full p-6 rounded-md"
+      }`}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold">Net Worth Over Time</h2>
+
+        <button
+          onClick={() => setFullscreen((prev) => !prev)}
+          className="px-3 py-1 text-sm bg-indigo-600 hover:bg-indigo-500 rounded text-white"
+        >
+          {fullscreen ? "Exit Full Screen" : "Full Screen"}
+        </button>
+      </div>
+
+      {/* Chart */}
       {data.length > 1 ? (
-        <ResponsiveContainer width="100%" height={300}>
+        <ResponsiveContainer width="100%" height={fullscreen ? "90%" : 300}>
           <LineChart data={data} margin={{ right: 50 }}>
             <XAxis dataKey="date" stroke="#9CA3AF" />
             <YAxis

@@ -1,4 +1,6 @@
 import Navbar from "../Navbar";
+import { transactions } from "../transactions";
+import CategoryPieChart from "../insights/PieChart";
 
 export default function Home() {
   return (
@@ -7,19 +9,9 @@ export default function Home() {
 
       <main className="flex-1 flex w-full flex-col items-center justify-center gap-8 bg-black">
         <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-          <h1 className="text-4xl font-bold sm:text-5xl lg:text-6xl">
-            Insights Page
-          </h1>
-          <p className="mt-4 text-lg sm:text-xl lg:text-2xl text-zinc-400">
-            Track your expenses without banking integration. Your data stays
-            private and secure.
-          </p>
+          <CategoryPieChart transactions={transactions} />
         </div>
       </main>
-
-      <footer className="w-full text-center text-sm text-zinc-400 py-4">
-        Manage your money simply and achieve more
-      </footer>
     </div>
   );
 }
