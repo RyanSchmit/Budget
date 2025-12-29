@@ -62,19 +62,28 @@ export default function CategoryPieChart({ transactions }) {
   // Filter out Income
   const expensesOnly = transactions.filter((t) => t.category !== "Income");
 
-  // Filter by range only if not showing all time
-  const filtered = expensesOnly.filter((t) =>
+  // Filter Income separately
+  const incomeOnly = transactions.filter((t) => t.category === "Income");
+
+  // Apply range filter only if not showing all time
+  const filteredExpenses = expensesOnly.filter((t) =>
     showAllTime ? true : isInRange(t.date, range)
   );
 
-  // Total spent
-  const totalSpent = showAllTime
-    ? expensesOnly.reduce((sum, t) => sum + Math.abs(t.amount), 0)
-    : filtered.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+  const filteredIncome = incomeOnly.filter((t) =>
+    showAllTime ? true : isInRange(t.date, range)
+  );
 
-  // Group by category
+  // Total spent / income
+  const totalSpent = filteredExpenses.reduce(
+    (sum, t) => sum + Math.abs(t.amount),
+    0
+  );
+  const totalIncome = filteredIncome.reduce((sum, t) => sum + t.amount, 0);
+
+  // Group expenses by category for pie chart
   const data = Object.values(
-    filtered.reduce((acc, t) => {
+    filteredExpenses.reduce((acc, t) => {
       if (!acc[t.category]) acc[t.category] = { name: t.category, value: 0 };
       acc[t.category].value += Math.abs(t.amount);
       return acc;
@@ -97,16 +106,25 @@ export default function CategoryPieChart({ transactions }) {
               })}
             </span>
           </p>
+          <p className="text-white/70 mt-1">
+            Total Income:{" "}
+            <span className="font-bold">
+              $
+              {totalIncome.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+          </p>
         </div>
 
         {/* Controls */}
         <div className="flex gap-2 flex-wrap">
-          {/* Range buttons only if NOT showing all time */}
           {!showAllTime &&
             [
               { label: "YTD", value: "ytd" },
-              { label: "Month", value: "month" },
               { label: "3M", value: "3months" },
+              { label: "Month", value: "month" },
             ].map((btn) => (
               <button
                 key={btn.value}
