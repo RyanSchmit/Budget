@@ -9,8 +9,13 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { NetWorthHistoryItem } from "../types";
 
-export default function NetWorthChart({ data }) {
+interface NetWorthChartProps {
+  data: NetWorthHistoryItem[];
+}
+
+export default function NetWorthChart({ data }: NetWorthChartProps) {
   const [fullscreen, setFullscreen] = useState(false);
 
   // Prevent background scrolling when fullscreen
@@ -53,7 +58,7 @@ export default function NetWorthChart({ data }) {
             <XAxis dataKey="date" stroke="#9CA3AF" />
             <YAxis
               stroke="#9CA3AF"
-              tickFormatter={(val) =>
+              tickFormatter={(val: number) =>
                 new Intl.NumberFormat("en-US", {
                   notation: "compact",
                   style: "currency",
@@ -63,10 +68,12 @@ export default function NetWorthChart({ data }) {
             />
             <Tooltip
               formatter={(val) =>
-                new Intl.NumberFormat("en-US", {
-                  style: "currency",
-                  currency: "USD",
-                }).format(val)
+                typeof val === "number"
+                  ? new Intl.NumberFormat("en-US", {
+                      style: "currency",
+                      currency: "USD",
+                    }).format(val)
+                  : ""
               }
             />
             <Line

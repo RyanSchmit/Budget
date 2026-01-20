@@ -1,7 +1,24 @@
 "use client";
 
-import MoneyInput from "../moneyInput";
+import MoneyInput from "../MoneyInput";
 import { useState, useMemo } from "react";
+import { Transaction } from "../types";
+
+interface TransactionsTableProps {
+  transactions: Transaction[];
+  selectedIds: Set<string>;
+  onUpdateTransaction: (id: string, field: string, value: string | number) => void;
+  onToggleSelect: (id: string) => void;
+  onToggleSelectAll: () => void;
+  allVisibleSelected: boolean;
+  categories: string[];
+  setCategories: React.Dispatch<React.SetStateAction<string[]>>;
+}
+
+interface SortConfig {
+  key: keyof Transaction | null;
+  direction: "asc" | "desc";
+}
 
 export default function TransactionsTable({
   transactions,
@@ -12,13 +29,13 @@ export default function TransactionsTable({
   allVisibleSelected,
   categories,
   setCategories,
-}) {
-  const [sortConfig, setSortConfig] = useState({
+}: TransactionsTableProps) {
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: null,
     direction: "desc", // default highest → lowest
   });
 
-  const handleSort = (key) => {
+  const handleSort = (key: keyof Transaction) => {
     setSortConfig((prev) => {
       if (prev.key === key) {
         // toggle direction
@@ -31,7 +48,13 @@ export default function TransactionsTable({
     });
   };
 
-  const SortArrow = ({ active, direction }) => {
+  const SortArrow = ({
+    active,
+    direction,
+  }: {
+    active: boolean;
+    direction: "asc" | "desc";
+  }) => {
     if (!active) return <span className="ml-1 text-gray-600">⇅</span>;
     return <span className="ml-1">{direction === "desc" ? "▼" : "▲"}</span>;
   };
@@ -40,17 +63,17 @@ export default function TransactionsTable({
     if (!sortConfig.key) return transactions;
 
     return [...transactions].sort((a, b) => {
-      let aVal = a[sortConfig.key];
-      let bVal = b[sortConfig.key];
+      let aVal = a[sortConfig.key!];
+      let bVal = b[sortConfig.key!];
 
       // ✅ Date sorting: most recent → least recent
       if (sortConfig.key === "date") {
-        const aDate = new Date(aVal);
-        const bDate = new Date(bVal);
+        const aDate = new Date(aVal as string);
+        const bDate = new Date(bVal as string);
 
         return sortConfig.direction === "desc"
-          ? bDate - aDate // most recent first
-          : aDate - bDate;
+          ? bDate.getTime() - aDate.getTime() // most recent first
+          : aDate.getTime() - bDate.getTime();
       }
 
       // ✅ Numeric sorting (amount)
@@ -202,7 +225,7 @@ export default function TransactionsTable({
                         onUpdateTransaction(t.id, "category", value);
                       }}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") e.target.blur();
+                        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
                       }}
                     />
                   ) : (

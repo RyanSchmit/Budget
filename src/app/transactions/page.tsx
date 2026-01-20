@@ -1,23 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "../Navbar";
 import TransactionsTable from "../transactions/table";
 import Papa from "papaparse";
-import { useEffect } from "react";
 import { rulePredict } from "../transactions/predictions";
+import { Transaction } from "../types";
 
 export default function Transactions() {
-  const [transactions, setTransactions] = useState([]);
-  const [pendingTransactions, setPendingTransactions] = useState([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [pendingTransactions, setPendingTransactions] = useState<Transaction[]>(
+    []
+  );
   const [fileName, setFileName] = useState("");
-  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [showDateFilter, setShowDateFilter] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
-  const [categories, setCategories] = useState([
+  const [categories, setCategories] = useState<string[]>([
     "Restaurants",
     "College",
     "Income",
@@ -41,7 +43,7 @@ export default function Transactions() {
     "N/A",
   ]);
 
-  const handleFileChange = (e) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -49,14 +51,14 @@ export default function Transactions() {
     handleCSVUpload(file);
   };
 
-  const handleCSVUpload = (file) => {
+  const handleCSVUpload = (file: File) => {
     if (!(file instanceof File)) return;
 
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
       complete: ({ data }) => {
-        const parsed = data.map((row) => {
+        const parsed: Transaction[] = (data as any[]).map((row) => {
           const debitRaw = row.Debit ?? row.debit ?? "";
           const creditRaw = row.Credit ?? row.credit ?? "";
           const fallbackRaw = row.Amount ?? row.amount ?? "";
@@ -82,7 +84,7 @@ export default function Transactions() {
           return {
             id: crypto.randomUUID(),
             date: row.Date || row.date || "",
-            description: row.Description || "",
+            description: row.Description || row.description || "",
             category: "N/A",
             amount,
           };
@@ -122,9 +124,12 @@ export default function Transactions() {
 
   // ⌨️ Keyboard shortcut: Ctrl+S / Cmd+S to Save
   useEffect(() => {
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       // 🚫 Ignore shortcuts while typing in inputs
-      if (["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) {
+      if (
+        document.activeElement &&
+        ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)
+      ) {
         return;
       }
 
@@ -143,18 +148,15 @@ export default function Transactions() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [transactions, handleSave]);
+  }, [transactions]);
 
-  const handlePredict = async () => {
+  const handlePredict = () => {
     if (!transactions || transactions.length === 0) return;
 
     try {
-      const preds = await Promise.all(
-        transactions.map(async (t) => {
-          const res = rulePredict?.(t.description, t.amount);
-          return res instanceof Promise ? res : res;
-        })
-      );
+      const preds = transactions.map((t) => {
+        return rulePredict(t.description, t.amount);
+      });
 
       setTransactions((prev) =>
         prev.map((t, i) => ({
@@ -167,12 +169,14 @@ export default function Transactions() {
     }
   };
 
-  const getTransactionKey = (t) => `${t.date}|${t.description}|${t.amount}`;
+  const getTransactionKey = (t: Transaction) =>
+    `${t.date}|${t.description}|${t.amount}`;
 
   const uniquePendingTransactions = pendingTransactions.filter(
     (pending) =>
       !transactions.some(
-        (existing) => getTransactionKey(existing) === getTransactionKey(pending)
+        (existing) =>
+          getTransactionKey(existing) === getTransactionKey(pending)
       )
   );
 
@@ -182,7 +186,11 @@ export default function Transactions() {
     setFileName("");
   };
 
-  const onUpdateTransaction = (id, field, value) => {
+  const onUpdateTransaction = (
+    id: string,
+    field: string,
+    value: string | number
+  ) => {
     setTransactions((prev) =>
       prev.map((t) =>
         t.id === id
@@ -200,7 +208,7 @@ export default function Transactions() {
     setSelectedIds(new Set());
   };
 
-  const toggleSelect = (id) => {
+  const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
@@ -276,8 +284,7 @@ export default function Transactions() {
                   type="button"
                   disabled={pendingTransactions.length === 0}
                   onClick={handleAddTransactions}
-                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium
-                 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Add
                 </button>
@@ -313,9 +320,7 @@ export default function Transactions() {
                     type="button"
                     disabled={selectedIds.size === 0}
                     onClick={handleDeleteSelected}
-                    className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium
-                 disabled:opacity-50 disabled:cursor-not-allowed
-                 hover:bg-red-700"
+                    className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-red-700"
                   >
                     Delete
                   </button>

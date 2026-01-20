@@ -1,4 +1,20 @@
-import MoneyInput from "../moneyInput";
+"use client";
+
+import MoneyInput from "../MoneyInput";
+import { AccountItem } from "../types";
+
+interface FinancialSectionProps {
+  title: string;
+  primaryLabel: string;
+  primaryValue: number | null;
+  onPrimaryChange: (value: number | null) => void;
+  items: AccountItem[];
+  addItem: () => void;
+  updateItem: (id: number, field: string, value: string | number | null) => void;
+  removeItem: (id: number) => void;
+  total: number;
+  emptyText?: string;
+}
 
 export default function FinancialSection({
   title,
@@ -11,7 +27,7 @@ export default function FinancialSection({
   removeItem,
   total,
   emptyText = "No additional items added.",
-}) {
+}: FinancialSectionProps) {
   return (
     <section className="bg-gray-900 p-6 rounded-md shadow-md w-full">
       <h2 className="text-xl font-semibold mb-4">{title}</h2>

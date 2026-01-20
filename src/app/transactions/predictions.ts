@@ -1,4 +1,9 @@
-const rules = [
+interface Rule {
+  keywords: string[];
+  category: string;
+}
+
+const rules: Rule[] = [
   {
     keywords: [
       "mcdonald",
@@ -64,7 +69,10 @@ const rules = [
   { keywords: ["fines"], category: "Traffic Tickets" },
 ];
 
-export const rulePredict = (description, amount) => {
+export const rulePredict = (
+  description: string,
+  amount: number
+): string => {
   const text = String(description).toLowerCase();
   for (const rule of rules) {
     if (rule.keywords.some((k) => text.includes(String(k).toLowerCase()))) {

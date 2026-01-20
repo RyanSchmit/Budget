@@ -3,13 +3,21 @@
 import { useEffect, useState } from "react";
 import { formatMoney } from "./format";
 
+interface MoneyInputProps {
+  label?: string;
+  value: number | null;
+  onChange: (value: number | null) => void;
+  placeholder?: string;
+  className?: string;
+}
+
 export default function MoneyInput({
   label,
   value,
   onChange,
   placeholder = "$0.00",
   className = "",
-}) {
+}: MoneyInputProps) {
   const [display, setDisplay] = useState("");
   const [isEditing, setIsEditing] = useState(false);
 

@@ -6,19 +6,22 @@ import FinancialSection from "./Balances";
 import { formatMoney } from "../format";
 import NetWorthChart from "./NetWorthChart";
 import { deriveNetWorthHistory } from "./Backwards";
-import { transactions } from "../transactions.js";
+import { transactions } from "../transactions";
+import { AccountItem, NetWorthHistoryItem } from "../types";
 
 export default function NetWorth() {
-  const [checkingValue, setCheckingValue] = useState(null);
-  const [creditCardValue, setCreditCardValue] = useState(null);
+  const [checkingValue, setCheckingValue] = useState<number | null>(null);
+  const [creditCardValue, setCreditCardValue] = useState<number | null>(null);
 
-  const [accounts, setAccounts] = useState([]);
-  const [liabilities, setLiabilities] = useState([]);
+  const [accounts, setAccounts] = useState<AccountItem[]>([]);
+  const [liabilities, setLiabilities] = useState<AccountItem[]>([]);
 
   // 🔑 Single source of truth for chart data
-  const [history, setHistory] = useState([]);
-  const [savedHistory, setSavedHistory] = useState([]);
-  const [derivedHistory, setDerivedHistory] = useState([]);
+  const [history, setHistory] = useState<NetWorthHistoryItem[]>([]);
+  const [savedHistory, setSavedHistory] = useState<NetWorthHistoryItem[]>([]);
+  const [derivedHistory, setDerivedHistory] = useState<
+    NetWorthHistoryItem[]
+  >([]);
 
   /* -------------------- Totals -------------------- */
 
@@ -35,16 +38,23 @@ export default function NetWorth() {
   /* -------------------- Assets -------------------- */
 
   function addAccount() {
-    setAccounts((prev) => [...prev, { id: Date.now(), name: "", amount: "" }]);
+    setAccounts((prev) => [
+      ...prev,
+      { id: Date.now(), name: "", amount: null },
+    ]);
   }
 
-  function updateAccount(id, field, value) {
+  function updateAccount(
+    id: number,
+    field: string,
+    value: string | number | null
+  ) {
     setAccounts((prev) =>
       prev.map((a) => (a.id === id ? { ...a, [field]: value } : a))
     );
   }
 
-  function removeAccount(id) {
+  function removeAccount(id: number) {
     setAccounts((prev) => prev.filter((a) => a.id !== id));
   }
 
@@ -53,17 +63,21 @@ export default function NetWorth() {
   function addLiability() {
     setLiabilities((prev) => [
       ...prev,
-      { id: Date.now(), name: "", amount: "" },
+      { id: Date.now(), name: "", amount: null },
     ]);
   }
 
-  function updateLiability(id, field, value) {
+  function updateLiability(
+    id: number,
+    field: string,
+    value: string | number | null
+  ) {
     setLiabilities((prev) =>
       prev.map((l) => (l.id === id ? { ...l, [field]: value } : l))
     );
   }
 
-  function removeLiability(id) {
+  function removeLiability(id: number) {
     setLiabilities((prev) => prev.filter((l) => l.id !== id));
   }
 
@@ -93,8 +107,11 @@ export default function NetWorth() {
     setDerivedHistory(derived);
   };
 
-  function mergeHistories(saved, derived) {
-    const map = new Map();
+  function mergeHistories(
+    saved: NetWorthHistoryItem[],
+    derived: NetWorthHistoryItem[]
+  ): NetWorthHistoryItem[] {
+    const map = new Map<string, number>();
 
     // Start with derived history
     for (const item of derived) {
@@ -109,7 +126,7 @@ export default function NetWorth() {
     // Convert back to sorted array
     return Array.from(map.entries())
       .map(([date, value]) => ({ date, value }))
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }
 
   const mergedHistory = mergeHistories(savedHistory, derivedHistory);
@@ -161,10 +178,12 @@ export default function NetWorth() {
               type="button"
               onClick={saveNetWorth}
               disabled={
-                history.length && history[history.length - 1].value === netWorth
+                history.length > 0 &&
+                history[history.length - 1].value === netWorth
               }
               className={`px-4 py-2 bg-green-600 text-white rounded-md text-sm ${
-                history.length && history[history.length - 1].value === netWorth
+                history.length > 0 &&
+                history[history.length - 1].value === netWorth
                   ? "opacity-50 cursor-not-allowed"
                   : "hover:bg-green-500"
               }`}

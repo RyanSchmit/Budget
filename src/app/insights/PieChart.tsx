@@ -9,6 +9,11 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import { Transaction } from "../types";
+
+interface CategoryPieChartProps {
+  transactions: Transaction[];
+}
 
 const COLORS = [
   "#ef4444",
@@ -21,17 +26,17 @@ const COLORS = [
   "#ec4899",
 ];
 
-const renderPercentLabel = ({ percent }) => {
+const renderPercentLabel = ({ percent }: { percent: number }) => {
   if (percent < 0.05) return null;
   return `${Math.round(percent * 100)}%`;
 };
 
-const parseDate = (dateStr) => {
+const parseDate = (dateStr: string): Date => {
   const [month, day, year] = dateStr.split("-");
-  return new Date(year, month - 1, day);
+  return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
 };
 
-const isInRange = (dateStr, range) => {
+const isInRange = (dateStr: string, range: string): boolean => {
   const now = new Date();
   const txDate = parseDate(dateStr);
 
@@ -55,7 +60,15 @@ const isInRange = (dateStr, range) => {
   return txDate >= startOfYear;
 };
 
-export default function CategoryPieChart({ transactions }) {
+interface ChartDataItem {
+  name: string;
+  value: number;
+  [key: string]: string | number;
+}
+
+export default function CategoryPieChart({
+  transactions,
+}: CategoryPieChartProps) {
   const [range, setRange] = useState("ytd");
   const [showAllTime, setShowAllTime] = useState(false);
 
@@ -83,12 +96,16 @@ export default function CategoryPieChart({ transactions }) {
 
   // Group expenses by category for pie chart
   const data = Object.values(
-    filteredExpenses.reduce((acc, t) => {
-      if (!acc[t.category]) acc[t.category] = { name: t.category, value: 0 };
-      acc[t.category].value += Math.abs(t.amount);
-      return acc;
-    }, {})
-  );
+    filteredExpenses.reduce(
+      (acc, t) => {
+        if (!acc[t.category])
+          acc[t.category] = { name: t.category, value: 0 };
+        acc[t.category].value += Math.abs(t.amount);
+        return acc;
+      },
+      {} as Record<string, ChartDataItem>
+    )
+  ) as ChartDataItem[];
 
   return (
     <div className="w-full bg-black rounded-xl p-4">
@@ -158,13 +175,13 @@ export default function CategoryPieChart({ transactions }) {
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
-              data={data}
+              data={data as any}
               dataKey="value"
               nameKey="name"
               cx="50%"
               cy="50%"
               outerRadius={120}
-              label={renderPercentLabel}
+              label={renderPercentLabel as any}
               labelLine={false}
             >
               {data.map((_, index) => (
@@ -174,10 +191,12 @@ export default function CategoryPieChart({ transactions }) {
 
             <Tooltip
               formatter={(value) =>
-                `$${value.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}`
+                typeof value === "number"
+                  ? `$${value.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}`
+                  : ""
               }
             />
             <Legend />
