@@ -76,7 +76,6 @@ function calculateRequiredWeeklyContributionWithChart({
   });
 }
 
-
 /* =======================
    Page Component
 ======================= */
@@ -85,7 +84,7 @@ export default function CompoundInterestPage() {
 
   const [principal, setPrincipal] = useState<number | null>(10000);
   const [weeklyContribution, setWeeklyContribution] = useState<number | null>(
-    200
+    200,
   );
   const [target, setTarget] = useState<number | null>(100000);
   const [annualRate, setAnnualRate] = useState(7);
@@ -107,7 +106,7 @@ export default function CompoundInterestPage() {
           weeklyContribution: weeklyContributionValue,
           annualRate,
           target: targetValue,
-        })
+        }),
       );
     }
 
@@ -118,7 +117,7 @@ export default function CompoundInterestPage() {
           annualRate,
           target: targetValue,
           years: durationYears,
-        })
+        }),
       );
     }
 
@@ -129,7 +128,7 @@ export default function CompoundInterestPage() {
           weeklyContribution: weeklyContributionValue,
           annualRate,
           years: durationYears,
-        })
+        }),
       );
     }
   }
@@ -141,7 +140,7 @@ export default function CompoundInterestPage() {
       <div className="flex min-h-[calc(100vh-64px)] justify-center px-4">
         <div className="w-full max-w-2xl space-y-6">
           {/* Input Card */}
-          <div className="mt-10 space-y-6 rounded-xl border border-gray-800 bg-gray-900 p-8 shadow-lg">
+          <div className="mt-25 space-y-6 rounded-xl border border-gray-800 bg-gray-900 p-4 shadow-lg">
             <h2 className="text-center text-2xl font-semibold">
               Compound Interest Calculator
             </h2>

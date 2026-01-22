@@ -55,7 +55,16 @@ export default function NetWorthChart({ data }: NetWorthChartProps) {
       {data.length > 1 ? (
         <ResponsiveContainer width="100%" height={fullscreen ? "90%" : 300}>
           <LineChart data={data} margin={{ right: 50 }}>
-            <XAxis dataKey="date" stroke="#9CA3AF" />
+            <XAxis
+              dataKey="date"
+              stroke="#9CA3AF"
+              tickFormatter={(date: string) => {
+                const d = new Date(date);
+                const month = d.toLocaleDateString("en-US", { month: "short" });
+                const year = d.getFullYear().toString().slice(-2);
+                return `${month} '${year}`;
+              }}
+            />
             <YAxis
               stroke="#9CA3AF"
               tickFormatter={(val: number) =>
