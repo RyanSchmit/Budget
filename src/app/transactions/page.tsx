@@ -5,6 +5,7 @@ import Navbar from "../Navbar";
 import TransactionsTable from "../transactions/table";
 import Papa from "papaparse";
 import { rulePredict } from "../transactions/predictions";
+import { categorizeNAWithTFIDF } from "../transactions/tfidf";
 import { Transaction } from "../types";
 
 export default function Transactions() {
@@ -19,6 +20,7 @@ export default function Transactions() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
+  const [showAI, setShowAI] = useState(false);
   const [categories, setCategories] = useState<string[]>([
     "Restaurants",
     "College",
@@ -150,20 +152,27 @@ export default function Transactions() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [transactions]);
 
-  const handlePredict = () => {
+  const handlePredict = async () => {
     if (!transactions || transactions.length === 0) return;
 
     try {
+      // Step 1: Apply keyword-based rules first
       const preds = transactions.map((t) => {
         return rulePredict(t.description, t.amount);
       });
 
-      setTransactions((prev) =>
-        prev.map((t, i) => ({
-          ...t,
-          category: preds[i] ?? t.category ?? "N/A",
-        }))
-      );
+      let updatedTransactions = transactions.map((t, i) => ({
+        ...t,
+        category: preds[i] ?? t.category ?? "N/A",
+      }));
+
+      // Step 2: Use TF-IDF to categorize remaining N/A transactions (async)
+      updatedTransactions = await categorizeNAWithTFIDF(updatedTransactions);
+
+      setTransactions(updatedTransactions);
+
+      // Show AI component after prediction
+      setShowAI(true);
     } catch (err) {
       console.error("Prediction error:", err);
     }
