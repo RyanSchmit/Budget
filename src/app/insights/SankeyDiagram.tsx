@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from "react";
 import * as d3 from "d3";
-import { sankey, sankeyLinkHorizontal, sankeyLeft, sankeyRight } from "d3-sankey";
+import { sankey } from "d3-sankey";
 import { Transaction } from "../types";
 
 interface CategoryPieChartProps {
@@ -103,6 +103,20 @@ interface SankeyLink {
   width?: number;
   y0?: number;
   y1?: number;
+}
+
+/** Straight-ended trapezoid between nodes (no curves). */
+function sankeyLinkStraight(link: SankeyLink): string {
+  const s = link.source as SankeyNode;
+  const t = link.target as SankeyNode;
+  const w = (link.width ?? 4) / 2;
+  const sx = s.x1 ?? 0;
+  const tx = t.x0 ?? 0;
+  const sy0 = (link.y0 ?? 0) - w;
+  const sy1 = (link.y0 ?? 0) + w;
+  const ty0 = (link.y1 ?? 0) - w;
+  const ty1 = (link.y1 ?? 0) + w;
+  return `M${sx},${sy0} L${sx},${sy1} L${tx},${ty1} L${tx},${ty0} Z`;
 }
 
 interface SankeyData {
@@ -268,27 +282,24 @@ export default function SankeyDiagram({
     ];
     const colorScale = d3.scaleOrdinal(linkColors);
 
-    // Draw links (connection areas between nodes) – filled ribbons visible on black
+    // Draw links (straight-ended trapezoids between nodes, no curves)
     const link = svg
       .append("g")
-      .attr("fill", "none")
       .selectAll("path")
       .data(links)
       .join("path")
-      .attr("d", sankeyLinkHorizontal() as any)
-      .attr("stroke", (d: SankeyLink) => {
+      .attr("d", (d: SankeyLink) => sankeyLinkStraight(d))
+      .attr("fill", (d: SankeyLink) => {
         const sourceNode = d.source as SankeyNode;
         return colorScale(sourceNode.name);
       })
-      .attr("stroke-width", (d: SankeyLink) => Math.max(4, d.width || 4))
-      .attr("stroke-opacity", 0.85)
-      .attr("stroke-linecap", "round")
-      .attr("stroke-linejoin", "round")
+      .attr("fill-opacity", 0.85)
+      .attr("stroke", "none")
       .on("mouseover", function (_event: MouseEvent, _d: SankeyLink) {
-        d3.select(this).attr("stroke-opacity", 1);
+        d3.select(this).attr("fill-opacity", 1);
       })
       .on("mouseout", function (_event: MouseEvent, _d: SankeyLink) {
-        d3.select(this).attr("stroke-opacity", 0.85);
+        d3.select(this).attr("fill-opacity", 0.85);
       });
 
     // Draw nodes (same palette as links, visible on black)
@@ -305,8 +316,7 @@ export default function SankeyDiagram({
       .attr("opacity", 0.9)
       .on("mouseover", function (_event: MouseEvent, d: SankeyNode) {
         d3.select(this).attr("opacity", 1);
-        // Highlight connected link areas
-        link.attr("stroke-opacity", (l: SankeyLink) => {
+        link.attr("fill-opacity", (l: SankeyLink) => {
           const source = l.source as SankeyNode;
           const target = l.target as SankeyNode;
           return source.name === d.name || target.name === d.name ? 1 : 0.15;
@@ -314,7 +324,7 @@ export default function SankeyDiagram({
       })
       .on("mouseout", function (_event: MouseEvent, _d: SankeyNode) {
         d3.select(this).attr("opacity", 0.9);
-        link.attr("stroke-opacity", 0.85);
+        link.attr("fill-opacity", 0.85);
       });
 
     // Add labels
