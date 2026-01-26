@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import * as d3 from "d3";
 import { sankey } from "d3-sankey";
 import { Transaction } from "../types";
+import { formatMoney } from "../format";
 
 interface CategoryPieChartProps {
   transactions: Transaction[];
@@ -342,40 +343,14 @@ export default function SankeyDiagram({
       .text((d: SankeyNode) => {
         const value = d.value || 0;
         const percent = totalIncome > 0 ? (value / totalIncome) * 100 : 0;
-        return `${d.name} (${percent.toFixed(1)}%)`;
+        const amt = value > 0 ? ` ${formatMoney(value)} ` : " ";
+        return `${d.name}${amt}(${percent.toFixed(1)}%)`;
       })
       .filter((d: SankeyNode) => {
         const value = d.value || 0;
         const percent = totalIncome > 0 ? (value / totalIncome) * 100 : 0;
         return percent >= 0.5; // Only show labels for items >= 0.5%
       });
-
-    // Add value labels on links (for significant flows)
-    links.forEach((link: SankeyLink) => {
-      const source = link.source as SankeyNode;
-      const target = link.target as SankeyNode;
-      const value = link.value;
-      const percent = totalIncome > 0 ? (value / totalIncome) * 100 : 0;
-
-      if (percent >= 1) {
-        // Only show for flows >= 1%
-        const sourceX = source.x1 || 0;
-        const targetX = target.x0 || 0;
-        const midX = (sourceX + targetX) / 2;
-        const midY = ((link.y0 || 0) + (link.y1 || 0)) / 2;
-
-        svg
-          .append("text")
-          .attr("x", midX)
-          .attr("y", midY)
-          .attr("dy", "0.35em")
-          .attr("text-anchor", "middle")
-          .attr("fill", "white")
-          .attr("font-size", "10px")
-          .attr("pointer-events", "none")
-          .text(`$${value.toFixed(0)}`);
-      }
-    });
   }, [data, totalIncome]);
 
   return (
