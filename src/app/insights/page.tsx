@@ -1,13 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "../Navbar";
-import { transactions } from "../transactions";
 import CategoryPieChart from "../insights/PieChart";
 import SankeyDiagram from "../insights/SankeyDiagram";
+import { fetchTransactions } from "../transactions/actions";
+import { Transaction } from "../types";
 
 export default function Home() {
-  const [activeView, setActiveView] = useState<"sankey" | "pie">("sankey");
+  const [activeView, setActiveView] = useState<"sankey" | "pie">("pie");
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load transactions from database on mount
+  useEffect(() => {
+    async function loadTransactions() {
+      try {
+        setLoading(true);
+        const data = await fetchTransactions();
+        setTransactions(data);
+      } catch (error) {
+        console.error("Failed to load transactions:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadTransactions();
+  }, []);
 
   return (
     <div className="min-h-screen bg-black font-sans text-white flex flex-col">
@@ -40,7 +59,15 @@ export default function Home() {
           </div>
 
           {/* Conditional Rendering */}
-          {activeView === "sankey" ? (
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-gray-400">Loading transactions...</p>
+            </div>
+          ) : transactions.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-gray-400">No transactions found.</p>
+            </div>
+          ) : activeView === "sankey" ? (
             <SankeyDiagram transactions={transactions} />
           ) : (
             <CategoryPieChart transactions={transactions} />

@@ -7,6 +7,12 @@ import Papa from "papaparse";
 import { rulePredict } from "../transactions/predictions";
 import { categorizeNAWithTFIDF } from "../transactions/tfidf";
 import { Transaction } from "../types";
+import {
+  fetchTransactions,
+  insertTransactions,
+  updateTransaction,
+  deleteTransactions,
+} from "./actions";
 
 export default function Transactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -21,6 +27,8 @@ export default function Transactions() {
   const [endDate, setEndDate] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [showAI, setShowAI] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState<string[]>([
     "Restaurants",
     "College",
@@ -44,6 +52,22 @@ export default function Transactions() {
     "Books",
     "N/A",
   ]);
+
+  // Load transactions from database on mount
+  useEffect(() => {
+    async function loadTransactions() {
+      try {
+        setLoading(true);
+        const data = await fetchTransactions();
+        setTransactions(data);
+      } catch (error) {
+        console.error("Failed to load transactions:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadTransactions();
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -98,30 +122,31 @@ export default function Transactions() {
     });
   };
 
-  function handleSave() {
-    const filename = "transactions.json";
-    const array = transactions;
-    // 1. Convert the array to a JSON string (pretty-printed with 4 spaces for readability).
-    const jsonString = JSON.stringify(array, null, 4);
+  const isNewTransaction = (t: Transaction) => !/^\d+$/.test(String(t.id).trim());
 
-    // 2. Create a Blob (Binary Large Object) from the JSON string.
-    const blob = new Blob([jsonString], { type: "application/json" });
+  async function handleSave() {
+    const toInsert = transactions.filter(isNewTransaction);
+    if (toInsert.length === 0) {
+      alert("No new transactions to save.");
+      return;
+    }
 
-    // 3. Create a temporary URL for the Blob.
-    const url = URL.createObjectURL(blob);
-
-    // 4. Create an anchor element to trigger the download.
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename; // Set the file name for the download.
-
-    // 5. Append the anchor to the document body and simulate a click.
-    document.body.appendChild(a);
-    a.click();
-
-    // 6. Clean up: remove the anchor and revoke the temporary URL.
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    try {
+      setSaving(true);
+      const result = await insertTransactions(toInsert);
+      if (result.success) {
+        const data = await fetchTransactions();
+        setTransactions(data);
+        alert("Transactions saved to database successfully!");
+      } else {
+        alert(`Failed to save transactions: ${result.error}`);
+      }
+    } catch (error) {
+      console.error("Error saving transactions:", error);
+      alert("Failed to save transactions. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   // ⌨️ Keyboard shortcut: Ctrl+S / Cmd+S to Save
@@ -142,15 +167,14 @@ export default function Transactions() {
 
       if (isSave) {
         e.preventDefault();
-        if (transactions.length > 0) {
-          handleSave();
-        }
+        const hasNew = transactions.some(isNewTransaction);
+        if (hasNew && !saving) handleSave();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [transactions]);
+  }, [transactions, saving]);
 
   const handlePredict = async () => {
     if (!transactions || transactions.length === 0) return;
@@ -189,32 +213,86 @@ export default function Transactions() {
       )
   );
 
-  const handleAddTransactions = () => {
-    setTransactions((prev) => [...prev, ...uniquePendingTransactions]);
-    setPendingTransactions([]);
-    setFileName("");
+  const handleAddTransactions = async () => {
+    if (uniquePendingTransactions.length === 0) {
+      setPendingTransactions([]);
+      setFileName("");
+      return;
+    }
+
+    try {
+      const result = await insertTransactions(uniquePendingTransactions);
+      if (result.success) {
+        const data = await fetchTransactions();
+        setTransactions(data);
+        setPendingTransactions([]);
+        setFileName("");
+      } else {
+        console.error("Failed to save new transactions:", result.error);
+        setTransactions((prev) => [...prev, ...uniquePendingTransactions]);
+        setPendingTransactions([]);
+        setFileName("");
+      }
+    } catch (error) {
+      console.error("Error saving new transactions:", error);
+      setTransactions((prev) => [...prev, ...uniquePendingTransactions]);
+      setPendingTransactions([]);
+      setFileName("");
+    }
   };
 
-  const onUpdateTransaction = (
+  const onUpdateTransaction = async (
     id: string,
     field: string,
     value: string | number
   ) => {
+    const updatedTransaction = transactions.find((t) => t.id === id);
+    if (!updatedTransaction) return;
+
+    const update = { [field]: value };
+    const updated = {
+      ...updatedTransaction,
+      ...update,
+    };
+
     setTransactions((prev) =>
-      prev.map((t) =>
-        t.id === id
-          ? {
-              ...t,
-              [field]: value,
-            }
-          : t
-      )
+      prev.map((t) => (t.id === id ? updated : t))
     );
+
+    // Update in database
+    try {
+      const result = await updateTransaction(id, update);
+      if (!result.success) {
+        console.error("Failed to update transaction:", result.error);
+      }
+    } catch (error) {
+      console.error("Error updating transaction:", error);
+    }
   };
 
-  const handleDeleteSelected = () => {
+  const handleDeleteSelected = async () => {
+    const idsToDelete = Array.from(selectedIds);
+    if (idsToDelete.length === 0) return;
+
+    // Optimistically update UI
     setTransactions((prev) => prev.filter((t) => !selectedIds.has(t.id)));
     setSelectedIds(new Set());
+
+    // Delete from database
+    try {
+      const result = await deleteTransactions(idsToDelete);
+      if (!result.success) {
+        console.error("Failed to delete transactions:", result.error);
+        // Reload transactions to sync with database
+        const data = await fetchTransactions();
+        setTransactions(data);
+      }
+    } catch (error) {
+      console.error("Error deleting transactions:", error);
+      // Reload transactions to sync with database
+      const data = await fetchTransactions();
+      setTransactions(data);
+    }
   };
 
   const toggleSelect = (id: string) => {
@@ -268,6 +346,9 @@ export default function Transactions() {
       <main className="pt-20 flex min-h-screen w-full flex-col items-center gap-8">
         <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <h3 className="pt-4">Transactions</h3>
+          {loading && (
+            <p className="text-sm text-gray-400 mt-2">Loading transactions...</p>
+          )}
 
           {/* CSV Upload */}
           <div className="mt-4 flex items-center gap-4">
@@ -308,14 +389,13 @@ export default function Transactions() {
               {/* RIGHT: Delete, Save, + Predict */}
               {transactions.length > 0 && (
                 <div className="flex items-center gap-6">
-                  {/* disable the button if it does not 
-                  differ from the transactions from the database */}
                   <button
                     type="button"
                     onClick={handleSave}
-                    className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium hover:bg-green-700"
+                    disabled={saving || !transactions.some(isNewTransaction)}
+                    className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Save
+                    {saving ? "Saving..." : "Save"}
                   </button>
 
                   <button
