@@ -4,20 +4,20 @@ import { useState, useEffect } from "react";
 import Navbar from "../Navbar";
 import TransactionsTable from "../transactions/table";
 import Papa from "papaparse";
-import { rulePredict } from "../transactions/predictions";
-import { categorizeNAWithTFIDF } from "../transactions/tfidf";
+import { predictCategory } from "../transactions/predictions";
 import { Transaction } from "../types";
 import {
   fetchTransactions,
   insertTransactions,
   updateTransaction,
   deleteTransactions,
+  predictCategoriesWithTFIDF,
 } from "./actions";
 
 export default function Transactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [pendingTransactions, setPendingTransactions] = useState<Transaction[]>(
-    []
+    [],
   );
   const [fileName, setFileName] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -122,7 +122,8 @@ export default function Transactions() {
     });
   };
 
-  const isNewTransaction = (t: Transaction) => !/^\d+$/.test(String(t.id).trim());
+  const isNewTransaction = (t: Transaction) =>
+    !/^\d+$/.test(String(t.id).trim());
 
   async function handleSave() {
     const toInsert = transactions.filter(isNewTransaction);
@@ -181,17 +182,16 @@ export default function Transactions() {
 
     try {
       // Step 1: Apply keyword-based rules first
-      const preds = transactions.map((t) => {
-        return rulePredict(t.description, t.amount);
-      });
+      const preds = transactions.map((t) => predictCategory(t));
 
       let updatedTransactions = transactions.map((t, i) => ({
         ...t,
         category: preds[i] ?? t.category ?? "N/A",
       }));
 
-      // Step 2: Use TF-IDF to categorize remaining N/A transactions (async)
-      updatedTransactions = await categorizeNAWithTFIDF(updatedTransactions);
+      // Step 2: Use TF-IDF to categorize remaining N/A transactions (backend)
+      updatedTransactions =
+        await predictCategoriesWithTFIDF(updatedTransactions);
 
       setTransactions(updatedTransactions);
 
@@ -209,8 +209,8 @@ export default function Transactions() {
     (pending) =>
       !transactions.some(
         (existing) =>
-          getTransactionKey(existing) === getTransactionKey(pending)
-      )
+          getTransactionKey(existing) === getTransactionKey(pending),
+      ),
   );
 
   const handleAddTransactions = async () => {
@@ -244,7 +244,7 @@ export default function Transactions() {
   const onUpdateTransaction = async (
     id: string,
     field: string,
-    value: string | number
+    value: string | number,
   ) => {
     const updatedTransaction = transactions.find((t) => t.id === id);
     if (!updatedTransaction) return;
@@ -255,9 +255,7 @@ export default function Transactions() {
       ...update,
     };
 
-    setTransactions((prev) =>
-      prev.map((t) => (t.id === id ? updated : t))
-    );
+    setTransactions((prev) => prev.map((t) => (t.id === id ? updated : t)));
 
     // Update in database
     try {
@@ -347,7 +345,9 @@ export default function Transactions() {
         <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <h3 className="pt-4">Transactions</h3>
           {loading && (
-            <p className="text-sm text-gray-400 mt-2">Loading transactions...</p>
+            <p className="text-sm text-gray-400 mt-2">
+              Loading transactions...
+            </p>
           )}
 
           {/* CSV Upload */}

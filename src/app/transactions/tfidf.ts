@@ -1,4 +1,5 @@
 import { Transaction } from "../types";
+import type { PredictionContext } from "./strategies/types";
 
 // Helper to yield control to browser to prevent freezing
 function yieldToBrowser(): Promise<void> {
@@ -25,7 +26,7 @@ function calculateTF(word: string, document: string[]): number {
 // Calculate Inverse Document Frequency (IDF) for a word across all documents
 function calculateIDF(word: string, allDocuments: string[][]): number {
   const documentsContainingWord = allDocuments.filter((doc) =>
-    doc.includes(word)
+    doc.includes(word),
   ).length;
   if (documentsContainingWord === 0) return 0;
   return Math.log(allDocuments.length / documentsContainingWord);
@@ -36,7 +37,7 @@ function calculateTFIDFVector(
   document: string[],
   vocabulary: Set<string>,
   allDocuments: string[][],
-  idfCache: Map<string, number>
+  idfCache: Map<string, number>,
 ): Map<string, number> {
   const vector = new Map<string, number>();
   const docSet = new Set(document);
@@ -61,7 +62,7 @@ function calculateTFIDFVector(
 // Calculate cosine similarity between two vectors (optimized)
 function cosineSimilarity(
   vec1: Map<string, number>,
-  vec2: Map<string, number>
+  vec2: Map<string, number>,
 ): number {
   let dotProduct = 0;
   let norm1 = 0;
@@ -82,9 +83,7 @@ function cosineSimilarity(
 }
 
 // Build category profiles from categorized transactions
-function buildCategoryProfiles(
-  categorizedTransactions: Transaction[]
-): {
+export function buildCategoryProfiles(categorizedTransactions: Transaction[]): {
   categoryProfiles: Map<string, string[][]>;
   allDocuments: string[][];
   vocabulary: Set<string>;
@@ -119,13 +118,11 @@ function buildCategoryProfiles(
 }
 
 // Predict category for a transaction using TF-IDF (optimized)
-function predictWithTFIDF(
+export function predictWithTFIDF(
   transaction: Transaction,
-  categoryProfiles: Map<string, string[][]>,
-  allDocuments: string[][],
-  vocabulary: Set<string>,
-  idfCache: Map<string, number>
+  context: PredictionContext,
 ): string {
+  const { categoryProfiles, allDocuments, vocabulary, idfCache } = context;
   if (categoryProfiles.size === 0) {
     return "N/A";
   }
@@ -138,7 +135,7 @@ function predictWithTFIDF(
     transactionTokens,
     vocabulary,
     allDocuments,
-    idfCache
+    idfCache,
   );
 
   // Calculate similarity to each category
@@ -157,7 +154,7 @@ function predictWithTFIDF(
       combinedCategoryDoc,
       vocabulary,
       allDocuments,
-      idfCache
+      idfCache,
     );
 
     // Calculate cosine similarity
@@ -174,32 +171,43 @@ function predictWithTFIDF(
   return bestScore > threshold ? bestCategory : "N/A";
 }
 
+/** Build prediction context from categorized transactions for TF-IDF strategy. */
+export function buildPredictionContext(
+  categorizedTransactions: Transaction[],
+): PredictionContext {
+  const { categoryProfiles, allDocuments, vocabulary } = buildCategoryProfiles(
+    categorizedTransactions,
+  );
+  return {
+    categoryProfiles,
+    allDocuments,
+    vocabulary,
+    idfCache: new Map<string, number>(),
+  };
+}
+
 // Categorize all N/A transactions using TF-IDF (async with batching)
 export async function categorizeNAWithTFIDF(
-  transactions: Transaction[]
+  transactions: Transaction[],
 ): Promise<Transaction[]> {
   // Separate categorized and uncategorized transactions
   const categorized = transactions.filter(
-    (tx) => tx.category && tx.category !== "N/A"
+    (tx) => tx.category && tx.category !== "N/A",
   );
   const uncategorized = transactions.filter(
-    (tx) => !tx.category || tx.category === "N/A"
+    (tx) => !tx.category || tx.category === "N/A",
   );
 
   if (uncategorized.length === 0 || categorized.length === 0) {
     return transactions;
   }
 
-  // Build category profiles once (optimized)
-  const { categoryProfiles, allDocuments, vocabulary } =
-    buildCategoryProfiles(categorized);
+  // Build prediction context once (optimized)
+  const context = buildPredictionContext(categorized);
 
-  if (categoryProfiles.size === 0) {
+  if (context.categoryProfiles.size === 0) {
     return transactions;
   }
-
-  // Cache IDF values to avoid recalculating
-  const idfCache = new Map<string, number>();
 
   // Process transactions in batches to avoid blocking the UI
   const batchSize = 10;
@@ -214,13 +222,7 @@ export async function categorizeNAWithTFIDF(
     for (const tx of batch) {
       const index = updatedTransactions.findIndex((t) => t.id === tx.id);
       if (index !== -1) {
-        const predictedCategory = predictWithTFIDF(
-          tx,
-          categoryProfiles,
-          allDocuments,
-          vocabulary,
-          idfCache
-        );
+        const predictedCategory = predictWithTFIDF(tx, context);
         updatedTransactions[index] = {
           ...tx,
           category: predictedCategory,

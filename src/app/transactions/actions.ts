@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Transaction } from "../types";
+import { categorizeNAWithTFIDF } from "./tfidf";
 
 // Convert date to ISO "YYYY-MM-DD". Handles both "MM-DD-YYYY" and "YYYY-MM-DD".
 function convertDateToISO(dateStr: string): string {
@@ -61,9 +62,13 @@ function isFromDb(id: string): boolean {
 
 function getUserId(): number {
   const raw = process.env.DEFAULT_USER_ID;
-  if (!raw) throw new Error("DEFAULT_USER_ID is not set. Add it to .env.local for the transactions user_id.");
+  if (!raw)
+    throw new Error(
+      "DEFAULT_USER_ID is not set. Add it to .env.local for the transactions user_id.",
+    );
   const n = parseInt(raw, 10);
-  if (Number.isNaN(n)) throw new Error("DEFAULT_USER_ID must be a valid integer.");
+  if (Number.isNaN(n))
+    throw new Error("DEFAULT_USER_ID must be a valid integer.");
   return n;
 }
 
@@ -73,7 +78,7 @@ function generateTransactId(index: number): number {
 }
 
 export async function insertTransactions(
-  transactions: Transaction[]
+  transactions: Transaction[],
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = createAdminClient();
@@ -87,8 +92,8 @@ export async function insertTransactions(
       transact_id: generateTransactId(i),
       user_id: userId,
       date: convertDateToISO(t.date),
-      description: (String(t.description ?? "").trim() || "(no description)"),
-      category: (String(t.category ?? "N/A").trim() || "N/A"),
+      description: String(t.description ?? "").trim() || "(no description)",
+      category: String(t.category ?? "N/A").trim() || "N/A",
       amount: Math.round(Number(t.amount)),
     }));
 
@@ -110,7 +115,7 @@ export async function insertTransactions(
 
 export async function updateTransaction(
   id: string,
-  updates: Partial<Transaction>
+  updates: Partial<Transaction>,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     if (!isFromDb(id)) return { success: true }; // New rows not in DB yet
@@ -118,9 +123,11 @@ export async function updateTransaction(
     const supabase = createAdminClient();
     const dbUpdates: Record<string, unknown> = {};
     if (updates.date) dbUpdates.date = convertDateToISO(updates.date);
-    if (updates.description !== undefined) dbUpdates.description = updates.description;
+    if (updates.description !== undefined)
+      dbUpdates.description = updates.description;
     if (updates.category !== undefined) dbUpdates.category = updates.category;
-    if (updates.amount !== undefined) dbUpdates.amount = Math.round(Number(updates.amount));
+    if (updates.amount !== undefined)
+      dbUpdates.amount = Math.round(Number(updates.amount));
     if (Object.keys(dbUpdates).length === 0) return { success: true };
 
     const { error } = await supabase
@@ -142,8 +149,15 @@ export async function updateTransaction(
   }
 }
 
+/** Run TF-IDF prediction on uncategorized transactions (server-side). */
+export async function predictCategoriesWithTFIDF(
+  transactions: Transaction[],
+): Promise<Transaction[]> {
+  return categorizeNAWithTFIDF(transactions);
+}
+
 export async function deleteTransactions(
-  ids: string[]
+  ids: string[],
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const dbIds = ids.filter((id) => isFromDb(id));
@@ -153,7 +167,10 @@ export async function deleteTransactions(
     const { error } = await supabase
       .from("transactions")
       .delete()
-      .in("transact_id", dbIds.map((id) => parseInt(id, 10)));
+      .in(
+        "transact_id",
+        dbIds.map((id) => parseInt(id, 10)),
+      );
 
     if (error) {
       console.error("Error deleting transactions:", error);
