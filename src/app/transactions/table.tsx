@@ -7,12 +7,17 @@ import { Transaction } from "../types";
 interface TransactionsTableProps {
   transactions: Transaction[];
   selectedIds: Set<string>;
-  onUpdateTransaction: (id: string, field: string, value: string | number) => void;
+  onUpdateTransaction: (
+    id: string,
+    field: string,
+    value: string | number,
+  ) => void;
   onToggleSelect: (id: string) => void;
   onToggleSelectAll: () => void;
   allVisibleSelected: boolean;
   categories: string[];
   setCategories: React.Dispatch<React.SetStateAction<string[]>>;
+  isDirty?: (id: string) => boolean;
 }
 
 interface SortConfig {
@@ -29,6 +34,7 @@ export default function TransactionsTable({
   allVisibleSelected,
   categories,
   setCategories,
+  isDirty,
 }: TransactionsTableProps) {
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: null,
@@ -159,7 +165,13 @@ export default function TransactionsTable({
 
           <tbody className="divide-y divide-gray-800 bg-black">
             {sortedTransactions.map((t) => (
-              <tr key={t.id} className="hover:bg-white/5">
+              <tr
+                key={t.id}
+                className={`hover:bg-white/5 ${
+                  isDirty?.(t.id) ? "bg-amber-950/30" : ""
+                }`}
+                title={isDirty?.(t.id) ? "Unsaved changes" : undefined}
+              >
                 {/* Select */}
                 <td className="px-4 py-2 text-center">
                   <input
@@ -214,7 +226,7 @@ export default function TransactionsTable({
 
                         setCategories((prev) => {
                           const exists = prev.some(
-                            (c) => c.toLowerCase() === normalized
+                            (c) => c.toLowerCase() === normalized,
                           );
 
                           if (exists) return prev;
@@ -225,7 +237,8 @@ export default function TransactionsTable({
                         onUpdateTransaction(t.id, "category", value);
                       }}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                        if (e.key === "Enter")
+                          (e.target as HTMLInputElement).blur();
                       }}
                     />
                   ) : (

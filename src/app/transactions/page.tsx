@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Navbar from "../Navbar";
 import TransactionsTable from "../transactions/table";
 import Papa from "papaparse";
 import { predictCategory } from "../transactions/predictions";
 import { Transaction } from "../types";
+import { TransactionStore } from "./TransactionStore";
 import {
   fetchTransactions,
   insertTransactions,
@@ -13,6 +14,9 @@ import {
   deleteTransactions,
   predictCategoriesWithTFIDF,
 } from "./actions";
+
+// Single store instance (observer subject) for transaction state
+const transactionStore = new TransactionStore();
 
 export default function Transactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -29,6 +33,8 @@ export default function Transactions() {
   const [showAI, setShowAI] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const storeRef = useRef(transactionStore);
+  const store = storeRef.current;
   const [categories, setCategories] = useState<string[]>([
     "Restaurants",
     "College",
@@ -53,13 +59,21 @@ export default function Transactions() {
     "N/A",
   ]);
 
+  // Subscribe to store (observer): any change notifies and we sync state for re-render
+  useEffect(() => {
+    const unsubscribe = store.subscribe(() => {
+      setTransactions(store.getTransactions());
+    });
+    return unsubscribe;
+  }, [store]);
+
   // Load transactions from database on mount
   useEffect(() => {
     async function loadTransactions() {
       try {
         setLoading(true);
         const data = await fetchTransactions();
-        setTransactions(data);
+        store.setTransactions(data);
       } catch (error) {
         console.error("Failed to load transactions:", error);
       } finally {
@@ -67,7 +81,7 @@ export default function Transactions() {
       }
     }
     loadTransactions();
-  }, []);
+  }, [store]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -122,26 +136,41 @@ export default function Transactions() {
     });
   };
 
-  const isNewTransaction = (t: Transaction) =>
-    !/^\d+$/.test(String(t.id).trim());
-
   async function handleSave() {
-    const toInsert = transactions.filter(isNewTransaction);
-    if (toInsert.length === 0) {
-      alert("No new transactions to save.");
+    const toInsert = store.getNewTransactions();
+    const toUpdate = store.getDirtyTransactions();
+    if (toInsert.length === 0 && toUpdate.length === 0) {
       return;
     }
 
     try {
       setSaving(true);
-      const result = await insertTransactions(toInsert);
-      if (result.success) {
-        const data = await fetchTransactions();
-        setTransactions(data);
-        alert("Transactions saved to database successfully!");
-      } else {
-        alert(`Failed to save transactions: ${result.error}`);
+      if (toInsert.length > 0) {
+        const result = await insertTransactions(toInsert);
+        if (!result.success) {
+          alert(`Failed to save new transactions: ${result.error}`);
+          return;
+        }
       }
+      if (toUpdate.length > 0) {
+        const results = await Promise.all(
+          toUpdate.map((t) =>
+            updateTransaction(t.id, {
+              date: t.date,
+              description: t.description,
+              category: t.category,
+              amount: t.amount,
+            }),
+          ),
+        );
+        const failed = results.filter((r) => !r.success);
+        if (failed.length > 0) {
+          console.error("Some updates failed:", failed.length);
+        }
+      }
+      const data = await fetchTransactions();
+      store.setTransactionsAndOriginal(data);
+      alert("Transactions saved to database successfully!");
     } catch (error) {
       console.error("Error saving transactions:", error);
       alert("Failed to save transactions. Please try again.");
@@ -153,7 +182,6 @@ export default function Transactions() {
   // ⌨️ Keyboard shortcut: Ctrl+S / Cmd+S to Save
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // 🚫 Ignore shortcuts while typing in inputs
       if (
         document.activeElement &&
         ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)
@@ -168,34 +196,26 @@ export default function Transactions() {
 
       if (isSave) {
         e.preventDefault();
-        const hasNew = transactions.some(isNewTransaction);
-        if (hasNew && !saving) handleSave();
+        if (store.hasChangesToSave() && !saving) handleSave();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [transactions, saving]);
+  }, [store, saving]);
 
   const handlePredict = async () => {
-    if (!transactions || transactions.length === 0) return;
+    const current = store.getTransactions();
+    if (!current || current.length === 0) return;
 
     try {
-      // Step 1: Apply keyword-based rules first
-      const preds = transactions.map((t) => predictCategory(t));
-
-      let updatedTransactions = transactions.map((t, i) => ({
+      const preds = current.map((t) => predictCategory(t));
+      let updated = current.map((t, i) => ({
         ...t,
         category: preds[i] ?? t.category ?? "N/A",
       }));
-
-      // Step 2: Use TF-IDF to categorize remaining N/A transactions (backend)
-      updatedTransactions =
-        await predictCategoriesWithTFIDF(updatedTransactions);
-
-      setTransactions(updatedTransactions);
-
-      // Show AI component after prediction
+      updated = await predictCategoriesWithTFIDF(updated);
+      store.setTransactionsSlice(updated);
       setShowAI(true);
     } catch (err) {
       console.error("Prediction error:", err);
@@ -224,72 +244,50 @@ export default function Transactions() {
       const result = await insertTransactions(uniquePendingTransactions);
       if (result.success) {
         const data = await fetchTransactions();
-        setTransactions(data);
+        store.setTransactionsAndOriginal(data);
         setPendingTransactions([]);
         setFileName("");
       } else {
         console.error("Failed to save new transactions:", result.error);
-        setTransactions((prev) => [...prev, ...uniquePendingTransactions]);
+        store.addPending(uniquePendingTransactions);
         setPendingTransactions([]);
         setFileName("");
       }
     } catch (error) {
       console.error("Error saving new transactions:", error);
-      setTransactions((prev) => [...prev, ...uniquePendingTransactions]);
+      store.addPending(uniquePendingTransactions);
       setPendingTransactions([]);
       setFileName("");
     }
   };
 
-  const onUpdateTransaction = async (
+  const onUpdateTransaction = (
     id: string,
     field: string,
     value: string | number,
   ) => {
-    const updatedTransaction = transactions.find((t) => t.id === id);
-    if (!updatedTransaction) return;
-
-    const update = { [field]: value };
-    const updated = {
-      ...updatedTransaction,
-      ...update,
-    };
-
-    setTransactions((prev) => prev.map((t) => (t.id === id ? updated : t)));
-
-    // Update in database
-    try {
-      const result = await updateTransaction(id, update);
-      if (!result.success) {
-        console.error("Failed to update transaction:", result.error);
-      }
-    } catch (error) {
-      console.error("Error updating transaction:", error);
-    }
+    store.updateTransaction(id, field as keyof Transaction, value);
+    // Persistence happens on Save (user clicks Save to update DB)
   };
 
   const handleDeleteSelected = async () => {
     const idsToDelete = Array.from(selectedIds);
     if (idsToDelete.length === 0) return;
 
-    // Optimistically update UI
-    setTransactions((prev) => prev.filter((t) => !selectedIds.has(t.id)));
+    store.removeByIds(selectedIds);
     setSelectedIds(new Set());
 
-    // Delete from database
     try {
       const result = await deleteTransactions(idsToDelete);
       if (!result.success) {
         console.error("Failed to delete transactions:", result.error);
-        // Reload transactions to sync with database
         const data = await fetchTransactions();
-        setTransactions(data);
+        store.setTransactionsAndOriginal(data);
       }
     } catch (error) {
       console.error("Error deleting transactions:", error);
-      // Reload transactions to sync with database
       const data = await fetchTransactions();
-      setTransactions(data);
+      store.setTransactionsAndOriginal(data);
     }
   };
 
@@ -389,14 +387,27 @@ export default function Transactions() {
               {/* RIGHT: Delete, Save, + Predict */}
               {transactions.length > 0 && (
                 <div className="flex items-center gap-6">
-                  <button
-                    type="button"
-                    onClick={handleSave}
-                    disabled={saving || !transactions.some(isNewTransaction)}
-                    className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {saving ? "Saving..." : "Save"}
-                  </button>
+                  <span className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      disabled={saving || !store.hasChangesToSave()}
+                      className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {saving ? "Saving..." : "Save"}
+                    </button>
+                    {store.hasChangesToSave() && !saving && (
+                      <span className="text-amber-400 text-sm">
+                        {store.getNewTransactions().length > 0 &&
+                          `${store.getNewTransactions().length} new`}
+                        {store.getNewTransactions().length > 0 &&
+                          store.getDirtyTransactions().length > 0 &&
+                          ", "}
+                        {store.getDirtyTransactions().length > 0 &&
+                          `${store.getDirtyTransactions().length} modified`}
+                      </span>
+                    )}
+                  </span>
 
                   <button
                     type="button"
@@ -505,6 +516,7 @@ export default function Transactions() {
             allVisibleSelected={allVisibleSelected}
             categories={categories}
             setCategories={setCategories}
+            isDirty={(id) => store.isDirty(id)}
           />
         </div>
       </main>

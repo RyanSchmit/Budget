@@ -12,13 +12,3 @@ export function predictCategory(transaction: {
 }): string {
   return keywordStrategy.predict(transaction);
 }
-
-/** @deprecated Use predictCategory instead. */
-export const rulePredict = (description: string, amount: number): string =>
-  predictCategory({
-    id: "",
-    date: "",
-    description,
-    category: "N/A",
-    amount,
-  });

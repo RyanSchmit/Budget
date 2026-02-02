@@ -16,10 +16,6 @@ export default function Home() {
           </p>
         </div>
       </main>
-
-      <footer className="w-full text-center text-sm text-zinc-400 py-4">
-        Manage your money simply and achieve more
-      </footer>
     </div>
   );
 }

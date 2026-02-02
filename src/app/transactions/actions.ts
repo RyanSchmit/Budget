@@ -30,11 +30,13 @@ export async function fetchTransactions(): Promise<Transaction[]> {
   try {
     const supabase = createAdminClient();
     const userId = getUserId();
+    // PostgREST/Supabase default limit is 1000; request more so we get all rows
     const { data, error } = await supabase
       .from("transactions")
       .select("*")
       .eq("user_id", userId)
-      .order("date", { ascending: false });
+      .order("date", { ascending: false })
+      .limit(50_000);
 
     if (error) {
       console.error("Error fetching transactions:", error);

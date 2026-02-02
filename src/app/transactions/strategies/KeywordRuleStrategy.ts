@@ -1,5 +1,5 @@
 import { Transaction } from "../../types";
-import { keywordRules } from "../keywords";
+import { keywordRules } from "./keywords";
 import type { CategoryPredictionStrategy } from "./types";
 
 /** Predicts category using keyword matching rules. */
