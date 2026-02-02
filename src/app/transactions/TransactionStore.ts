@@ -6,11 +6,24 @@ type Unsubscribe = () => void;
  * Observer-pattern store for transactions. Holds current state and
  * last-known DB state (original). Notifies subscribers on any change so
  * UI can show dirty state and enable Save.
+ *
+ * Singleton: use TransactionStore.getInstance() to get the single instance.
  */
 export class TransactionStore {
+  private static instance: TransactionStore | null = null;
+
   private transactions: Transaction[] = [];
   private originalById: Map<string, Transaction> = new Map();
   private subscribers: Set<() => void> = new Set();
+
+  private constructor() {}
+
+  static getInstance(): TransactionStore {
+    if (TransactionStore.instance === null) {
+      TransactionStore.instance = new TransactionStore();
+    }
+    return TransactionStore.instance;
+  }
 
   getTransactions(): Transaction[] {
     return this.transactions;
@@ -43,7 +56,7 @@ export class TransactionStore {
   updateTransaction(
     id: string,
     field: keyof Transaction,
-    value: string | number,
+    value: string | number
   ): void {
     const idx = this.transactions.findIndex((t) => t.id === id);
     if (idx === -1) return;

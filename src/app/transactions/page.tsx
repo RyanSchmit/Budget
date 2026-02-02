@@ -16,12 +16,12 @@ import {
 } from "./actions";
 
 // Single store instance (observer subject) for transaction state
-const transactionStore = new TransactionStore();
+const transactionStore = TransactionStore.getInstance();
 
 export default function Transactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [pendingTransactions, setPendingTransactions] = useState<Transaction[]>(
-    [],
+    []
   );
   const [fileName, setFileName] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -160,8 +160,8 @@ export default function Transactions() {
               description: t.description,
               category: t.category,
               amount: t.amount,
-            }),
-          ),
+            })
+          )
         );
         const failed = results.filter((r) => !r.success);
         if (failed.length > 0) {
@@ -228,9 +228,8 @@ export default function Transactions() {
   const uniquePendingTransactions = pendingTransactions.filter(
     (pending) =>
       !transactions.some(
-        (existing) =>
-          getTransactionKey(existing) === getTransactionKey(pending),
-      ),
+        (existing) => getTransactionKey(existing) === getTransactionKey(pending)
+      )
   );
 
   const handleAddTransactions = async () => {
@@ -264,7 +263,7 @@ export default function Transactions() {
   const onUpdateTransaction = (
     id: string,
     field: string,
-    value: string | number,
+    value: string | number
   ) => {
     store.updateTransaction(id, field as keyof Transaction, value);
     // Persistence happens on Save (user clicks Save to update DB)
