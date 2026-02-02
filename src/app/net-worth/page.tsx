@@ -1,13 +1,14 @@
 "use client";
 
 import Navbar from "../Navbar";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import FinancialSection from "./Balances";
 import { formatMoney } from "../format";
 import NetWorthChart from "./NetWorthChart";
 import { deriveNetWorthHistory } from "./Backwards";
-import { transactions } from "../transactions";
+import { fetchTransactions } from "../transactions/actions";
 import { AccountItem, NetWorthHistoryItem } from "../types";
+import type { Transaction } from "../types";
 
 export default function NetWorth() {
   const [checkingValue, setCheckingValue] = useState<number | null>(null);
@@ -16,12 +17,32 @@ export default function NetWorth() {
   const [accounts, setAccounts] = useState<AccountItem[]>([]);
   const [liabilities, setLiabilities] = useState<AccountItem[]>([]);
 
+  // Transactions from database for "Work Backwards"
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactionsLoading, setTransactionsLoading] = useState(true);
+
   // 🔑 Single source of truth for chart data
   const [history, setHistory] = useState<NetWorthHistoryItem[]>([]);
   const [savedHistory, setSavedHistory] = useState<NetWorthHistoryItem[]>([]);
-  const [derivedHistory, setDerivedHistory] = useState<
-    NetWorthHistoryItem[]
-  >([]);
+  const [derivedHistory, setDerivedHistory] = useState<NetWorthHistoryItem[]>(
+    [],
+  );
+
+  // Load transactions from database
+  useEffect(() => {
+    async function loadTransactions() {
+      try {
+        setTransactionsLoading(true);
+        const data = await fetchTransactions();
+        setTransactions(data);
+      } catch (error) {
+        console.error("Failed to load transactions:", error);
+      } finally {
+        setTransactionsLoading(false);
+      }
+    }
+    loadTransactions();
+  }, []);
 
   /* -------------------- Totals -------------------- */
 
@@ -47,10 +68,10 @@ export default function NetWorth() {
   function updateAccount(
     id: number,
     field: string,
-    value: string | number | null
+    value: string | number | null,
   ) {
     setAccounts((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, [field]: value } : a))
+      prev.map((a) => (a.id === id ? { ...a, [field]: value } : a)),
     );
   }
 
@@ -70,10 +91,10 @@ export default function NetWorth() {
   function updateLiability(
     id: number,
     field: string,
-    value: string | number | null
+    value: string | number | null,
   ) {
     setLiabilities((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, [field]: value } : l))
+      prev.map((l) => (l.id === id ? { ...l, [field]: value } : l)),
     );
   }
 
@@ -109,7 +130,7 @@ export default function NetWorth() {
 
   function mergeHistories(
     saved: NetWorthHistoryItem[],
-    derived: NetWorthHistoryItem[]
+    derived: NetWorthHistoryItem[],
   ): NetWorthHistoryItem[] {
     const map = new Map<string, number>();
 
@@ -194,9 +215,14 @@ export default function NetWorth() {
             <button
               type="button"
               onClick={workBackwards}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md text-sm"
+              disabled={transactionsLoading}
+              className={`px-4 py-2 bg-indigo-600 text-white rounded-md text-sm ${
+                transactionsLoading
+                  ? "opacity-50 cursor-not-allowed"
+                  : "hover:bg-indigo-500"
+              }`}
             >
-              Work Backwards
+              {transactionsLoading ? "Loading…" : "Work Backwards"}
             </button>
           </div>
         </div>
