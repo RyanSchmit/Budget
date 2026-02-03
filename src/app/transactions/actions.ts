@@ -2,7 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Transaction } from "../types";
-import { categorizeNAWithTFIDF } from "./tfidf";
+import { categorizeNAWithTFIDF } from "./strategies/tfidf";
 
 // Convert date to ISO "YYYY-MM-DD". Handles both "MM-DD-YYYY" and "YYYY-MM-DD".
 function convertDateToISO(dateStr: string): string {
@@ -26,31 +26,54 @@ function convertDateFromISO(val: string | unknown): string {
   return `${month}-${day}-${year}`;
 }
 
+const PAGE_SIZE = 1000; // Supabase/PostgREST often cap at 1000 per request
+
 export async function fetchTransactions(): Promise<Transaction[]> {
   try {
     const supabase = createAdminClient();
     const userId = getUserId();
-    // PostgREST/Supabase default limit is 1000; request more so we get all rows
-    const { data, error } = await supabase
-      .from("transactions")
-      .select("*")
-      .eq("user_id", userId)
-      .order("date", { ascending: false })
-      .limit(50_000);
+    const allRows: Record<string, unknown>[] = [];
+    let offset = 0;
+    let hasMore = true;
 
-    if (error) {
-      console.error("Error fetching transactions:", error);
-      throw error;
+    while (hasMore) {
+      const from = offset;
+      const to = offset + PAGE_SIZE - 1;
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("user_id", userId)
+        .order("date", { ascending: false })
+        .order("transact_id", { ascending: false })
+        .range(from, to);
+
+      if (error) {
+        console.error("Error fetching transactions:", error);
+        throw error;
+      }
+
+      const page = data ?? [];
+      allRows.push(...page);
+      hasMore = page.length === PAGE_SIZE;
+      offset += PAGE_SIZE;
     }
 
-    // Convert dates from ISO to MM-DD-YYYY format and map transact_id to id
-    return (data || []).map((t) => ({
-      id: String(t.transact_id),
-      date: convertDateFromISO(t.date),
-      description: t.description,
-      category: t.category,
-      amount: Number(t.amount),
-    }));
+    // Convert dates from ISO to MM-DD-YYYY format and map transact_id to id.
+    // De-duplicate by id (first occurrence wins) to avoid React key conflicts.
+    const seenIds = new Set<string>();
+    return allRows
+      .map((t) => ({
+        id: String(t.transact_id),
+        date: convertDateFromISO(t.date),
+        description: String(t.description ?? ""),
+        category: String(t.category ?? ""),
+        amount: Number(t.amount),
+      }))
+      .filter((t) => {
+        if (seenIds.has(t.id)) return false;
+        seenIds.add(t.id);
+        return true;
+      });
   } catch (error) {
     console.error("Error in fetchTransactions:", error);
     return [];
@@ -66,7 +89,7 @@ function getUserId(): number {
   const raw = process.env.DEFAULT_USER_ID;
   if (!raw)
     throw new Error(
-      "DEFAULT_USER_ID is not set. Add it to .env.local for the transactions user_id.",
+      "DEFAULT_USER_ID is not set. Add it to .env.local for the transactions user_id."
     );
   const n = parseInt(raw, 10);
   if (Number.isNaN(n))
@@ -80,7 +103,7 @@ function generateTransactId(index: number): number {
 }
 
 export async function insertTransactions(
-  transactions: Transaction[],
+  transactions: Transaction[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = createAdminClient();
@@ -117,7 +140,7 @@ export async function insertTransactions(
 
 export async function updateTransaction(
   id: string,
-  updates: Partial<Transaction>,
+  updates: Partial<Transaction>
 ): Promise<{ success: boolean; error?: string }> {
   try {
     if (!isFromDb(id)) return { success: true }; // New rows not in DB yet
@@ -153,13 +176,13 @@ export async function updateTransaction(
 
 /** Run TF-IDF prediction on uncategorized transactions (server-side). */
 export async function predictCategoriesWithTFIDF(
-  transactions: Transaction[],
+  transactions: Transaction[]
 ): Promise<Transaction[]> {
   return categorizeNAWithTFIDF(transactions);
 }
 
 export async function deleteTransactions(
-  ids: string[],
+  ids: string[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const dbIds = ids.filter((id) => isFromDb(id));
@@ -171,7 +194,7 @@ export async function deleteTransactions(
       .delete()
       .in(
         "transact_id",
-        dbIds.map((id) => parseInt(id, 10)),
+        dbIds.map((id) => parseInt(id, 10))
       );
 
     if (error) {

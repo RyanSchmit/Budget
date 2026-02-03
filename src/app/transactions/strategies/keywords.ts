@@ -6,7 +6,7 @@ export interface KeywordRule {
 export const keywordRules: KeywordRule[] = [
   {
     keywords: [
-      "mcdonald",
+      "Mcdonald",
       "Panda Express",
       "Hot Chicken",
       "Chick-Fil-A",
@@ -26,30 +26,30 @@ export const keywordRules: KeywordRule[] = [
     category: "Restaurants",
   },
   {
-    keywords: ["walmart", "target", "costco", "Grocery"],
+    keywords: ["Walmart", "Target", "Costco", "Grocery"],
     category: "Groceries",
   },
   { keywords: ["Donut"], category: "Snacks" },
   {
-    keywords: ["uber", "lyft", "MTA", "rail", "flix"],
+    keywords: ["Uber", "Lyft", "MTA", "Rail", "Flix"],
     category: "Transportation",
   },
-  { keywords: ["gas"], category: "Gas" },
+  { keywords: ["Gas"], category: "Gas" },
   {
     keywords: [
-      "coffee",
+      "Coffee",
       "Campus Market",
       "Starbucks",
       "Espresso",
       "UU MARKET",
-      "cafe",
+      "Cafe",
     ],
     category: "Energy Drink",
   },
   {
     keywords: [
-      "payroll",
-      "salary",
+      "Payroll",
+      "Salary",
       "CalMatters",
       "Mobile Deposit",
       "Interest Payment",
@@ -58,13 +58,13 @@ export const keywordRules: KeywordRule[] = [
     category: "Income",
   },
   {
-    keywords: ["Monthly Service Fee", "Spotify", "APPLE.COM/BILL"],
+    keywords: ["Monthly Service Fee", "Spotify", "Apple.com/Bill"],
     category: "Subscriptions",
   },
   { keywords: ["Audible", "books"], category: "Books" },
   { keywords: ["Pub", "Brew", "Brewing"], category: "Bar" },
   { keywords: ["Golf"], category: "Golf" },
-  { keywords: ["BEVERAGES & MOR", "Liquor"], category: "Alcohol" },
+  { keywords: ["Beverages & More", "Liquor"], category: "Alcohol" },
   { keywords: ["Field", "Stadium"], category: "Sports Games" },
-  { keywords: ["fines"], category: "Traffic Tickets" },
+  { keywords: ["Fines"], category: "Traffic Tickets" },
 ];

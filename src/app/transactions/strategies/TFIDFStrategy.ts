@@ -1,5 +1,5 @@
 import { Transaction } from "../../types";
-import { predictWithTFIDF } from "../tfidf";
+import { predictWithTFIDF } from "./tfidf";
 import type { CategoryPredictionStrategy, PredictionContext } from "./types";
 
 /** Predicts category using TF-IDF similarity against known categorized transactions. */

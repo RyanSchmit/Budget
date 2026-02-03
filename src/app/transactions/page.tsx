@@ -14,6 +14,7 @@ import {
   deleteTransactions,
   predictCategoriesWithTFIDF,
 } from "./actions";
+import KeywordsTab from "./KeywordsTab";
 
 // Single store instance (observer subject) for transaction state
 const transactionStore = TransactionStore.getInstance();
@@ -30,6 +31,9 @@ export default function Transactions() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
+  const [activeTab, setActiveTab] = useState<"transactions" | "keywords">(
+    "transactions"
+  );
   const [showAI, setShowAI] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -340,183 +344,215 @@ export default function Transactions() {
 
       <main className="pt-20 flex min-h-screen w-full flex-col items-center gap-8">
         <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-          <h3 className="pt-4">Transactions</h3>
-          {loading && (
-            <p className="text-sm text-gray-400 mt-2">
-              Loading transactions...
-            </p>
-          )}
-
-          {/* CSV Upload */}
-          <div className="mt-4 flex items-center gap-4">
-            <div className="mt-4 flex items-center justify-between gap-12 w-full">
-              {/* LEFT: CSV + Add */}
-              <div className="flex items-center gap-6">
-                <label
-                  htmlFor="csvFile"
-                  className="cursor-pointer rounded-md bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/20"
-                >
-                  {fileName || "Choose CSV"}
-                </label>
-
-                <input
-                  id="csvFile"
-                  type="file"
-                  accept=".csv,text/csv"
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
-
-                <button
-                  type="button"
-                  disabled={pendingTransactions.length === 0}
-                  onClick={handleAddTransactions}
-                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Add
-                </button>
-
-                {pendingTransactions.length > 0 && (
-                  <p className="text-sm text-gray-400">
-                    {pendingTransactions.length} ready
-                  </p>
-                )}
-              </div>
-
-              {/* RIGHT: Delete, Save, + Predict */}
-              {transactions.length > 0 && (
-                <div className="flex items-center gap-6">
-                  <span className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleSave}
-                      disabled={saving || !store.hasChangesToSave()}
-                      className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {saving ? "Saving..." : "Save"}
-                    </button>
-                    {store.hasChangesToSave() && !saving && (
-                      <span className="text-amber-400 text-sm">
-                        {store.getNewTransactions().length > 0 &&
-                          `${store.getNewTransactions().length} new`}
-                        {store.getNewTransactions().length > 0 &&
-                          store.getDirtyTransactions().length > 0 &&
-                          ", "}
-                        {store.getDirtyTransactions().length > 0 &&
-                          `${store.getDirtyTransactions().length} modified`}
-                      </span>
-                    )}
-                  </span>
-
-                  <button
-                    type="button"
-                    onClick={handlePredict}
-                    className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium hover:bg-purple-700"
-                  >
-                    Predict
-                  </button>
-                  <button
-                    type="button"
-                    disabled={selectedIds.size === 0}
-                    onClick={handleDeleteSelected}
-                    className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-red-700"
-                  >
-                    Delete
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Search + Category filter */}
-          {transactions.length > 0 && (
-            <div className="flex items-center gap-4 mt-4">
-              {/* Search */}
-              <input
-                type="text"
-                placeholder="Search description…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-72 rounded-md border border-gray-700 bg-black px-3 py-2 text-sm text-white"
-              />
-
-              {/* Category Filter */}
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="rounded-md border border-gray-700 bg-black px-3 py-2 text-sm"
-              >
-                <option value="ALL">All Categories</option>
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-
-              {/* Date Filter Toggle */}
+          <div className="mt-4 flex items-center gap-6 border-b border-gray-800 pb-2">
+            <nav className="flex gap-1">
               <button
                 type="button"
-                onClick={() => setShowDateFilter((p) => !p)}
-                className="rounded-md bg-gray-700 px-4 py-2 text-sm hover:bg-gray-600"
+                onClick={() => setActiveTab("transactions")}
+                className={`rounded-t-md px-4 py-2 text-sm font-medium ${
+                  activeTab === "transactions"
+                    ? "bg-gray-800 text-white"
+                    : "text-gray-400 hover:text-white hover:bg-gray-800/60"
+                }`}
               >
-                {showDateFilter ? "Hide Dates" : "Filter by Date"}
+                Transactions
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("keywords")}
+                className={`rounded-t-md px-4 py-2 text-sm font-medium ${
+                  activeTab === "keywords"
+                    ? "bg-gray-800 text-white"
+                    : "text-gray-400 hover:text-white hover:bg-gray-800/60"
+                }`}
+              >
+                Keywords
+              </button>
+            </nav>
+          </div>
 
-              {showDateFilter && (
-                <div className="mt-3 flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm text-gray-400">From</label>
+          {activeTab === "keywords" ? (
+            <KeywordsTab />
+          ) : (
+            <>
+              {loading && (
+                <p className="text-sm text-gray-400 mt-2">
+                  Loading transactions...
+                </p>
+              )}
+
+              {/* CSV Upload */}
+              <div className="mt-4 flex items-center gap-4">
+                <div className="mt-4 flex items-center justify-between gap-12 w-full">
+                  {/* LEFT: CSV + Add */}
+                  <div className="flex items-center gap-6">
+                    <label
+                      htmlFor="csvFile"
+                      className="cursor-pointer rounded-md bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/20"
+                    >
+                      {fileName || "Choose CSV"}
+                    </label>
+
                     <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="rounded-md border border-gray-700 bg-black px-2 py-1 text-sm"
+                      id="csvFile"
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      onChange={handleFileChange}
                     />
+
+                    <button
+                      type="button"
+                      disabled={pendingTransactions.length === 0}
+                      onClick={handleAddTransactions}
+                      className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Add
+                    </button>
+
+                    {pendingTransactions.length > 0 && (
+                      <p className="text-sm text-gray-400">
+                        {pendingTransactions.length} ready
+                      </p>
+                    )}
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm text-gray-400">To</label>
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="rounded-md border border-gray-700 bg-black px-2 py-1 text-sm"
-                    />
-                  </div>
+                  {/* RIGHT: Delete, Save, + Predict */}
+                  {transactions.length > 0 && (
+                    <div className="flex items-center gap-6">
+                      <span className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleSave}
+                          disabled={saving || !store.hasChangesToSave()}
+                          className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {saving ? "Saving..." : "Save"}
+                        </button>
+                        {store.hasChangesToSave() && !saving && (
+                          <span className="text-amber-400 text-sm">
+                            {store.getNewTransactions().length > 0 &&
+                              `${store.getNewTransactions().length} new`}
+                            {store.getNewTransactions().length > 0 &&
+                              store.getDirtyTransactions().length > 0 &&
+                              ", "}
+                            {store.getDirtyTransactions().length > 0 &&
+                              `${store.getDirtyTransactions().length} modified`}
+                          </span>
+                        )}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={handlePredict}
+                        className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium hover:bg-purple-700"
+                      >
+                        Predict
+                      </button>
+                      <button
+                        type="button"
+                        disabled={selectedIds.size === 0}
+                        onClick={handleDeleteSelected}
+                        className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-red-700"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Search + Category filter */}
+              {transactions.length > 0 && (
+                <div className="flex items-center gap-4 mt-4">
+                  {/* Search */}
+                  <input
+                    type="text"
+                    placeholder="Search description…"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-72 rounded-md border border-gray-700 bg-black px-3 py-2 text-sm text-white"
+                  />
+
+                  {/* Category Filter */}
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="rounded-md border border-gray-700 bg-black px-3 py-2 text-sm"
+                  >
+                    <option value="ALL">All Categories</option>
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Date Filter Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setShowDateFilter((p) => !p)}
+                    className="rounded-md bg-gray-700 px-4 py-2 text-sm hover:bg-gray-600"
+                  >
+                    {showDateFilter ? "Hide Dates" : "Filter by Date"}
+                  </button>
+
+                  {showDateFilter && (
+                    <div className="mt-3 flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-gray-400">From</label>
+                        <input
+                          type="date"
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
+                          className="rounded-md border border-gray-700 bg-black px-2 py-1 text-sm"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-gray-400">To</label>
+                        <input
+                          type="date"
+                          value={endDate}
+                          onChange={(e) => setEndDate(e.target.value)}
+                          className="rounded-md border border-gray-700 bg-black px-2 py-1 text-sm"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-sm text-gray-400">
+                    {filteredTransactions.length} results
+                  </p>
+
+                  {/* Clear Filters */}
+                  {(searchQuery || categoryFilter !== "ALL") && (
+                    <button
+                      onClick={() => {
+                        setSearchQuery("");
+                        setCategoryFilter("ALL");
+                      }}
+                      className="text-sm text-gray-400 hover:text-white"
+                    >
+                      Clear
+                    </button>
+                  )}
                 </div>
               )}
 
-              <p className="text-sm text-gray-400">
-                {filteredTransactions.length} results
-              </p>
-
-              {/* Clear Filters */}
-              {(searchQuery || categoryFilter !== "ALL") && (
-                <button
-                  onClick={() => {
-                    setSearchQuery("");
-                    setCategoryFilter("ALL");
-                  }}
-                  className="text-sm text-gray-400 hover:text-white"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
+              <TransactionsTable
+                transactions={filteredTransactions}
+                selectedIds={selectedIds}
+                onUpdateTransaction={onUpdateTransaction}
+                onToggleSelect={toggleSelect}
+                onToggleSelectAll={handleSelectAll}
+                allVisibleSelected={allVisibleSelected}
+                categories={categories}
+                setCategories={setCategories}
+                isDirty={(id) => store.isDirty(id)}
+              />
+            </>
           )}
-
-          <TransactionsTable
-            transactions={filteredTransactions}
-            selectedIds={selectedIds}
-            onUpdateTransaction={onUpdateTransaction}
-            onToggleSelect={toggleSelect}
-            onToggleSelectAll={handleSelectAll}
-            allVisibleSelected={allVisibleSelected}
-            categories={categories}
-            setCategories={setCategories}
-            isDirty={(id) => store.isDirty(id)}
-          />
         </div>
       </main>
     </div>

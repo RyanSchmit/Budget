@@ -1,5 +1,5 @@
-import { Transaction } from "../types";
-import type { PredictionContext } from "./strategies/types";
+import { Transaction } from "../../types";
+import type { PredictionContext } from "./types";
 
 // Helper to yield control to browser to prevent freezing
 function yieldToBrowser(): Promise<void> {
@@ -26,7 +26,7 @@ function calculateTF(word: string, document: string[]): number {
 // Calculate Inverse Document Frequency (IDF) for a word across all documents
 function calculateIDF(word: string, allDocuments: string[][]): number {
   const documentsContainingWord = allDocuments.filter((doc) =>
-    doc.includes(word),
+    doc.includes(word)
   ).length;
   if (documentsContainingWord === 0) return 0;
   return Math.log(allDocuments.length / documentsContainingWord);
@@ -37,7 +37,7 @@ function calculateTFIDFVector(
   document: string[],
   vocabulary: Set<string>,
   allDocuments: string[][],
-  idfCache: Map<string, number>,
+  idfCache: Map<string, number>
 ): Map<string, number> {
   const vector = new Map<string, number>();
   const docSet = new Set(document);
@@ -62,7 +62,7 @@ function calculateTFIDFVector(
 // Calculate cosine similarity between two vectors (optimized)
 function cosineSimilarity(
   vec1: Map<string, number>,
-  vec2: Map<string, number>,
+  vec2: Map<string, number>
 ): number {
   let dotProduct = 0;
   let norm1 = 0;
@@ -120,7 +120,7 @@ export function buildCategoryProfiles(categorizedTransactions: Transaction[]): {
 // Predict category for a transaction using TF-IDF (optimized)
 export function predictWithTFIDF(
   transaction: Transaction,
-  context: PredictionContext,
+  context: PredictionContext
 ): string {
   const { categoryProfiles, allDocuments, vocabulary, idfCache } = context;
   if (categoryProfiles.size === 0) {
@@ -135,7 +135,7 @@ export function predictWithTFIDF(
     transactionTokens,
     vocabulary,
     allDocuments,
-    idfCache,
+    idfCache
   );
 
   // Calculate similarity to each category
@@ -154,7 +154,7 @@ export function predictWithTFIDF(
       combinedCategoryDoc,
       vocabulary,
       allDocuments,
-      idfCache,
+      idfCache
     );
 
     // Calculate cosine similarity
@@ -173,10 +173,10 @@ export function predictWithTFIDF(
 
 /** Build prediction context from categorized transactions for TF-IDF strategy. */
 export function buildPredictionContext(
-  categorizedTransactions: Transaction[],
+  categorizedTransactions: Transaction[]
 ): PredictionContext {
   const { categoryProfiles, allDocuments, vocabulary } = buildCategoryProfiles(
-    categorizedTransactions,
+    categorizedTransactions
   );
   return {
     categoryProfiles,
@@ -188,14 +188,14 @@ export function buildPredictionContext(
 
 // Categorize all N/A transactions using TF-IDF (async with batching)
 export async function categorizeNAWithTFIDF(
-  transactions: Transaction[],
+  transactions: Transaction[]
 ): Promise<Transaction[]> {
   // Separate categorized and uncategorized transactions
   const categorized = transactions.filter(
-    (tx) => tx.category && tx.category !== "N/A",
+    (tx) => tx.category && tx.category !== "N/A"
   );
   const uncategorized = transactions.filter(
-    (tx) => !tx.category || tx.category === "N/A",
+    (tx) => !tx.category || tx.category === "N/A"
   );
 
   if (uncategorized.length === 0 || categorized.length === 0) {
