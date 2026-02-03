@@ -4,11 +4,14 @@ import { useState, useEffect } from "react";
 import Navbar from "../Navbar";
 import CategoryPieChart from "../insights/PieChart";
 import SankeyDiagram from "../insights/SankeyDiagram";
+import CategoryStatsTable from "../insights/CategoryStatsTable";
 import { fetchTransactions } from "../transactions/actions";
 import { Transaction } from "../types";
 
 export default function Home() {
-  const [activeView, setActiveView] = useState<"sankey" | "pie">("pie");
+  const [activeView, setActiveView] = useState<
+    "sankey" | "pie" | "category-stats"
+  >("pie");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -56,6 +59,16 @@ export default function Home() {
             >
               Pie Chart
             </button>
+            <button
+              onClick={() => setActiveView("category-stats")}
+              className={`px-6 py-2 rounded-lg text-sm font-medium transition ${
+                activeView === "category-stats"
+                  ? "bg-red-600 text-white"
+                  : "bg-white/10 hover:bg-white/20 text-white/70"
+              }`}
+            >
+              Category Stats
+            </button>
           </div>
 
           {/* Conditional Rendering */}
@@ -69,6 +82,8 @@ export default function Home() {
             </div>
           ) : activeView === "sankey" ? (
             <SankeyDiagram transactions={transactions} />
+          ) : activeView === "category-stats" ? (
+            <CategoryStatsTable transactions={transactions} />
           ) : (
             <CategoryPieChart transactions={transactions} />
           )}
