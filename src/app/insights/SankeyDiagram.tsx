@@ -316,7 +316,16 @@ export default function SankeyDiagram({ transactions }: CategoryPieChartProps) {
         d3.select(this).attr("fill-opacity", 0.85);
       });
 
-    // Draw nodes (same palette as links, visible on black)
+    // Color each node to match the links that touch it (so "ends of the lines" match line color)
+    const nodeColor = (d: SankeyNode) => {
+      const incoming = links.find(
+        (l: SankeyLink) => (l.target as SankeyNode).name === d.name
+      );
+      if (incoming) return colorScale((incoming.source as SankeyNode).name);
+      return colorScale(d.name);
+    };
+
+    // Draw nodes (same color as their connecting links)
     const node = svg
       .append("g")
       .selectAll("rect")
@@ -326,7 +335,7 @@ export default function SankeyDiagram({ transactions }: CategoryPieChartProps) {
       .attr("y", (d: SankeyNode) => d.y0 || 0)
       .attr("height", (d: SankeyNode) => (d.y1 || 0) - (d.y0 || 0))
       .attr("width", (d: SankeyNode) => (d.x1 || 0) - (d.x0 || 0))
-      .attr("fill", (d: SankeyNode) => colorScale(d.name))
+      .attr("fill", (d: SankeyNode) => nodeColor(d))
       .attr("opacity", 0.9)
       .on("mouseover", function (_event: MouseEvent, d: SankeyNode) {
         d3.select(this).attr("opacity", 1);
@@ -371,7 +380,7 @@ export default function SankeyDiagram({ transactions }: CategoryPieChartProps) {
           .attr("x", 0)
           .attr("dy", "0.35em")
           .attr("text-anchor", anchor)
-          .attr("fill", "white")
+          .attr("fill", "#111")
           .attr("font-size", "12px")
           .text(textStr);
 
@@ -384,7 +393,8 @@ export default function SankeyDiagram({ transactions }: CategoryPieChartProps) {
             .attr("y", bbox.y - pad)
             .attr("width", bbox.width + pad * 2)
             .attr("height", bbox.height + pad * 2)
-            .attr("fill", "rgba(0,0,0,0.75)")
+            .attr("fill", "white")
+            .attr("fill-opacity", 0.7)
             .attr("rx", 4)
             .attr("ry", 4);
         }
