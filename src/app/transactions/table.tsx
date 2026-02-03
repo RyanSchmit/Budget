@@ -3,6 +3,7 @@
 import MoneyInput from "../MoneyInput";
 import { useState, useMemo } from "react";
 import { Transaction } from "../types";
+import { formatMoney } from "../format";
 
 interface TransactionsTableProps {
   transactions: Transaction[];
@@ -10,7 +11,7 @@ interface TransactionsTableProps {
   onUpdateTransaction: (
     id: string,
     field: string,
-    value: string | number,
+    value: string | number
   ) => void;
   onToggleSelect: (id: string) => void;
   onToggleSelectAll: () => void;
@@ -93,6 +94,15 @@ export default function TransactionsTable({
         : String(aVal).localeCompare(String(bVal));
     });
   }, [transactions, sortConfig]);
+
+  const totalAmount = useMemo(
+    () =>
+      sortedTransactions.reduce(
+        (sum, t) => sum + (typeof t.amount === "number" ? t.amount : 0),
+        0
+      ),
+    [sortedTransactions]
+  );
 
   return (
     <div className="mt-8">
@@ -226,7 +236,7 @@ export default function TransactionsTable({
 
                         setCategories((prev) => {
                           const exists = prev.some(
-                            (c) => c.toLowerCase() === normalized,
+                            (c) => c.toLowerCase() === normalized
                           );
 
                           if (exists) return prev;
@@ -278,6 +288,20 @@ export default function TransactionsTable({
               </tr>
             ))}
           </tbody>
+
+          <tfoot>
+            <tr className="border-t border-gray-700 font-medium">
+              <td className="sticky bottom-0 z-10 bg-gray-900 px-4 py-3 w-10" />
+              <td className="sticky bottom-0 z-10 bg-gray-900 px-4 py-3" />
+              <td className="sticky bottom-0 z-10 bg-gray-900 px-4 py-3" />
+              <td className="sticky bottom-0 z-10 bg-gray-900 px-4 py-3">
+                Total
+              </td>
+              <td className="sticky bottom-0 z-10 bg-gray-900 px-4 py-3 text-right whitespace-nowrap">
+                {formatMoney(totalAmount)}
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </div>
