@@ -15,6 +15,7 @@ import {
   predictCategoriesWithTFIDF,
 } from "./actions";
 import KeywordsTab from "./KeywordsTab";
+import SelectionKeywordToolbar from "./SelectionKeywordToolbar";
 
 // Single store instance (observer subject) for transaction state
 const transactionStore = TransactionStore.getInstance();
@@ -39,6 +40,7 @@ export default function Transactions() {
   const [saving, setSaving] = useState(false);
   const storeRef = useRef(transactionStore);
   const store = storeRef.current;
+  const transactionsTabRef = useRef<HTMLDivElement>(null);
   const [categories, setCategories] = useState<string[]>([
     "Restaurants",
     "College",
@@ -374,7 +376,10 @@ export default function Transactions() {
           {activeTab === "keywords" ? (
             <KeywordsTab />
           ) : (
-            <>
+            <div ref={transactionsTabRef}>
+              {activeTab === "transactions" && (
+                <SelectionKeywordToolbar containerRef={transactionsTabRef} />
+              )}
               {loading && (
                 <p className="text-sm text-gray-400 mt-2">
                   Loading transactions...
@@ -551,7 +556,7 @@ export default function Transactions() {
                 setCategories={setCategories}
                 isDirty={(id) => store.isDirty(id)}
               />
-            </>
+            </div>
           )}
         </div>
       </main>
