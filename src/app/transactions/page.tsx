@@ -128,7 +128,7 @@ export default function Transactions() {
           }
 
           return {
-            id: crypto.randomUUID(),
+            id: "new-" + crypto.randomUUID(),
             date: row.Date || row.date || "",
             description: row.Description || row.description || "",
             category: "N/A",

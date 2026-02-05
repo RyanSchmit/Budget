@@ -70,24 +70,22 @@ Add to `.env.local`:
 - `NEXT_PUBLIC_SUPABASE_URL` — Supabase project URL
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase anon (publishable) key
 - `SUPABASE_SERVICE_ROLE_KEY` — **Required for Transactions.** Service role key (Project Settings → API). Used by server-side code to read/write `transactions`; it bypasses Row Level Security (RLS). **Never expose this client-side.**
-- `DEFAULT_USER_ID` — Integer user id used for `user_id` when inserting transactions. Use the `id` from your users table (or any integer you use to identify the current user).
 
 ## Notes
 
 - The transactions are now stored in Supabase instead of the static file
 - All CRUD operations (Create, Read, Update, Delete) are automatically synced with the database
 - Date format conversion is handled automatically (MM-DD-YYYY ↔ YYYY-MM-DD)
-- The Save button inserts **new** transactions (e.g. from CSV) into the `transactions` table. Fetch, update, and delete filter by `user_id`.
+- The Save button inserts **new** transactions (e.g. from CSV) into the `transactions` table.
 
 ## Troubleshooting
 
 If you encounter issues:
 
 1. **"relation 'transactions' does not exist"**: Make sure you've run the SQL migration
-2. **"DEFAULT_USER_ID is not set"**: Add `DEFAULT_USER_ID=<your-user-id>` to `.env.local`
-3. **"new row violates row-level security policy"**: Add `SUPABASE_SERVICE_ROLE_KEY` to `.env.local` (Project Settings → API → `service_role` secret). The app uses it for server-side DB access so inserts bypass RLS.
-4. **"null value in column transact_id"**: The app now generates `transact_id` (timestamp-based) when inserting. If you prefer DB-generated IDs, add a default in Supabase SQL Editor: `CREATE SEQUENCE IF NOT EXISTS transactions_transact_id_seq; ALTER TABLE transactions ALTER COLUMN transact_id SET DEFAULT nextval('transactions_transact_id_seq');` then remove `transact_id` from the insert payload in `actions.ts`.
-5. **"Missing SUPABASE_SERVICE_ROLE_KEY"**: Same as above; add the service role key to `.env.local`
-6. **Permission errors**: Ensure `SUPABASE_SERVICE_ROLE_KEY` is set. If you use only the anon key, RLS policies must allow INSERT.
-7. **Date format errors**: Verify your dates are in MM-DD-YYYY or YYYY-MM-DD format
-8. **Connection errors**: Verify your `.env.local` has the correct Supabase credentials
+2. **"new row violates row-level security policy"**: Add `SUPABASE_SERVICE_ROLE_KEY` to `.env.local` (Project Settings → API → `service_role` secret). The app uses it for server-side DB access so inserts bypass RLS.
+3. **"null value in column transact_id"**: The app generates `transact_id` (UUID) when inserting new transactions.
+4. **"Missing SUPABASE_SERVICE_ROLE_KEY"**: Same as above; add the service role key to `.env.local`
+5. **Permission errors**: Ensure `SUPABASE_SERVICE_ROLE_KEY` is set. If you use only the anon key, RLS policies must allow INSERT.
+6. **Date format errors**: Verify your dates are in MM-DD-YYYY or YYYY-MM-DD format
+7. **Connection errors**: Verify your `.env.local` has the correct Supabase credentials

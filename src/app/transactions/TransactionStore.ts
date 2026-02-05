@@ -33,9 +33,9 @@ export class TransactionStore {
     return this.originalById.get(id);
   }
 
-  /** Whether this transaction exists in the DB (numeric id). */
+  /** Whether this transaction exists in the DB (UUID transact_id). New rows use "new-" prefix. */
   isFromDb(id: string): boolean {
-    return /^\d+$/.test(String(id).trim());
+    return !String(id).trim().startsWith("new-");
   }
 
   /** Set full list (e.g. after fetch). Also sets original snapshot for dirty detection. */

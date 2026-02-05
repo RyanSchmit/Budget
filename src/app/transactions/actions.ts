@@ -31,7 +31,6 @@ const PAGE_SIZE = 1000; // Supabase/PostgREST often cap at 1000 per request
 export async function fetchTransactions(): Promise<Transaction[]> {
   try {
     const supabase = createAdminClient();
-    const userId = getUserId();
     const allRows: Record<string, unknown>[] = [];
     let offset = 0;
     let hasMore = true;
@@ -42,9 +41,8 @@ export async function fetchTransactions(): Promise<Transaction[]> {
       const { data, error } = await supabase
         .from("transactions")
         .select("*")
-        .eq("user_id", userId)
         .order("date", { ascending: false })
-        .order("transact_id", { ascending: false })
+        .order("created_at", { ascending: false })
         .range(from, to);
 
       if (error) {
@@ -80,26 +78,9 @@ export async function fetchTransactions(): Promise<Transaction[]> {
   }
 }
 
-// True if id is from DB (transact_id), false if new (e.g. UUID from CSV).
+// True if id is from DB (transact_id UUID), false if new (e.g. "new-..." from CSV).
 function isFromDb(id: string): boolean {
-  return /^\d+$/.test(String(id).trim());
-}
-
-function getUserId(): number {
-  const raw = process.env.DEFAULT_USER_ID;
-  if (!raw)
-    throw new Error(
-      "DEFAULT_USER_ID is not set. Add it to .env.local for the transactions user_id."
-    );
-  const n = parseInt(raw, 10);
-  if (Number.isNaN(n))
-    throw new Error("DEFAULT_USER_ID must be a valid integer.");
-  return n;
-}
-
-/** Generate a unique bigint for transact_id when the DB has no default. */
-function generateTransactId(index: number): number {
-  return Date.now() * 1000 + index;
+  return !String(id).trim().startsWith("new-");
 }
 
 export async function insertTransactions(
@@ -107,19 +88,17 @@ export async function insertTransactions(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = createAdminClient();
-    const userId = getUserId();
 
-    // Only insert new rows (e.g. from CSV). DB rows have numeric id (transact_id).
+    // Only insert new rows (e.g. from CSV). DB rows have UUID id (transact_id).
     const newOnes = transactions.filter((t) => !isFromDb(t.id));
     if (newOnes.length === 0) return { success: true };
 
-    const rows = newOnes.map((t, i) => ({
-      transact_id: generateTransactId(i),
-      user_id: userId,
+    const rows = newOnes.map((t) => ({
+      transact_id: crypto.randomUUID(),
       date: convertDateToISO(t.date),
       description: String(t.description ?? "").trim() || "(no description)",
       category: String(t.category ?? "N/A").trim() || "N/A",
-      amount: Math.round(Number(t.amount)),
+      amount: Number(t.amount),
     }));
 
     const { error } = await supabase.from("transactions").insert(rows);
@@ -151,14 +130,13 @@ export async function updateTransaction(
     if (updates.description !== undefined)
       dbUpdates.description = updates.description;
     if (updates.category !== undefined) dbUpdates.category = updates.category;
-    if (updates.amount !== undefined)
-      dbUpdates.amount = Math.round(Number(updates.amount));
+    if (updates.amount !== undefined) dbUpdates.amount = Number(updates.amount);
     if (Object.keys(dbUpdates).length === 0) return { success: true };
 
     const { error } = await supabase
       .from("transactions")
       .update(dbUpdates)
-      .eq("transact_id", parseInt(id, 10));
+      .eq("transact_id", id);
 
     if (error) {
       console.error("Error updating transaction:", error);
@@ -192,10 +170,7 @@ export async function deleteTransactions(
     const { error } = await supabase
       .from("transactions")
       .delete()
-      .in(
-        "transact_id",
-        dbIds.map((id) => parseInt(id, 10))
-      );
+      .in("transact_id", dbIds);
 
     if (error) {
       console.error("Error deleting transactions:", error);
