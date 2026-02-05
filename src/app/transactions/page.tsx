@@ -531,11 +531,16 @@ export default function Transactions() {
                   </p>
 
                   {/* Clear Filters */}
-                  {(searchQuery || categoryFilter !== "ALL") && (
+                  {(searchQuery ||
+                    categoryFilter !== "ALL" ||
+                    startDate ||
+                    endDate) && (
                     <button
                       onClick={() => {
                         setSearchQuery("");
                         setCategoryFilter("ALL");
+                        setStartDate("");
+                        setEndDate("");
                       }}
                       className="text-sm text-gray-400 hover:text-white"
                     >
@@ -545,17 +550,19 @@ export default function Transactions() {
                 </div>
               )}
 
-              <TransactionsTable
-                transactions={filteredTransactions}
-                selectedIds={selectedIds}
-                onUpdateTransaction={onUpdateTransaction}
-                onToggleSelect={toggleSelect}
-                onToggleSelectAll={handleSelectAll}
-                allVisibleSelected={allVisibleSelected}
-                categories={categories}
-                setCategories={setCategories}
-                isDirty={(id) => store.isDirty(id)}
-              />
+              <div className="mb-8">
+                <TransactionsTable
+                  transactions={filteredTransactions}
+                  selectedIds={selectedIds}
+                  onUpdateTransaction={onUpdateTransaction}
+                  onToggleSelect={toggleSelect}
+                  onToggleSelectAll={handleSelectAll}
+                  allVisibleSelected={allVisibleSelected}
+                  categories={categories}
+                  setCategories={setCategories}
+                  isDirty={(id) => store.isDirty(id)}
+                />
+              </div>
             </div>
           )}
         </div>
