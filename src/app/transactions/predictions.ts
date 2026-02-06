@@ -1,4 +1,4 @@
-import { KeywordRuleStrategy } from "./strategies/KeywordRuleStrategy";
+import { KeywordRuleStrategy } from "./prediction-strategies/KeywordRuleStrategy";
 
 const keywordStrategy = new KeywordRuleStrategy();
 

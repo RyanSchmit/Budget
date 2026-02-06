@@ -29,6 +29,10 @@ export const keywordRules: KeywordRule[] = [
     keywords: ["Walmart", "Target", "Costco", "Grocery"],
     category: "Groceries",
   },
+  {
+    keywords: ["Zelle", "PayPal", "Venmo", "Cash App", "Transfer"],
+    category: "Transfers",
+  },
   { keywords: ["Donut"], category: "Snacks" },
   {
     keywords: ["Uber", "Lyft", "MTA", "Rail", "Flix"],

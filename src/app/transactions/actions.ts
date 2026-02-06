@@ -2,7 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Transaction } from "../types";
-import { categorizeNAWithTFIDF } from "./strategies/tfidf";
+import { categorizeNAWithTFIDF } from "./prediction-strategies/tfidf";
 
 // Convert date to ISO "YYYY-MM-DD". Handles both "MM-DD-YYYY" and "YYYY-MM-DD".
 function convertDateToISO(dateStr: string): string {

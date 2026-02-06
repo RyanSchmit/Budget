@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import type { KeywordRule } from "./strategies/keywords";
-import { getKeywordRules, setKeywordRules } from "./strategies/keywordStore";
+import type { KeywordRule } from "./prediction-strategies/keywords";
+import {
+  getKeywordRules,
+  setKeywordRules,
+} from "./prediction-strategies/keywordStore";
 
 const DEFAULT_CATEGORIES = [
   "Restaurants",

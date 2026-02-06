@@ -3,6 +3,56 @@
 import { useEffect, useState } from "react";
 import { formatMoney } from "./format";
 
+/** Evaluate a simple math expression: numbers and +, -, *, / (with * and / before + and -). */
+function evaluateExpression(expr: string): number | null {
+  const s = expr.replace(/\s/g, "").trim();
+  if (!s) return null;
+  const tokens: string[] = [];
+  const r = /(-?\d+\.?\d*)|([+\-*/])/g;
+  let m;
+  while ((m = r.exec(s)) !== null) {
+    tokens.push(m[1] !== undefined ? m[1] : m[2]);
+  }
+  let i = 0;
+  function parseFactor(): number {
+    if (i < tokens.length && tokens[i] === "-") {
+      i++;
+      return -parseFactor();
+    }
+    if (i >= tokens.length) return NaN;
+    const t = tokens[i];
+    if (t === "+" || t === "*" || t === "/") return NaN;
+    i++;
+    const n = Number(t);
+    if (Number.isNaN(n)) return NaN;
+    return n;
+  }
+  function parseTerm(): number {
+    let v = parseFactor();
+    while (i < tokens.length && (tokens[i] === "*" || tokens[i] === "/")) {
+      const op = tokens[i++];
+      const right = parseFactor();
+      if (Number.isNaN(right)) return NaN;
+      if (op === "/" && right === 0) return NaN;
+      v = op === "*" ? v * right : v / right;
+    }
+    return v;
+  }
+  function parseExpr(): number {
+    let v = parseTerm();
+    while (i < tokens.length && (tokens[i] === "+" || tokens[i] === "-")) {
+      const op = tokens[i++];
+      const right = parseTerm();
+      if (Number.isNaN(right)) return NaN;
+      v = op === "+" ? v + right : v - right;
+    }
+    return v;
+  }
+  const result = parseExpr();
+  if (i !== tokens.length || Number.isNaN(result)) return null;
+  return result;
+}
+
 interface MoneyInputProps {
   label?: string;
   value: number | null;
@@ -32,6 +82,49 @@ export default function MoneyInput({
     }
   }, [value, isEditing]);
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    // Expression mode: = followed by numbers and +, -, *, /, spaces
+    if (raw.startsWith("=")) {
+      setDisplay(raw);
+      // Don't update value until blur so user can edit the expression
+      return;
+    }
+    const numericOnly = raw.replace(/[^0-9.-]/g, "");
+    let normalized = numericOnly;
+    if (numericOnly.includes("-")) {
+      if (numericOnly.startsWith("-")) {
+        normalized = "-" + numericOnly.slice(1).replace(/-/g, "");
+      } else {
+        normalized = numericOnly.replace(/-/g, "");
+      }
+    }
+    if ((normalized.match(/\./g) || []).length > 1) return;
+    setDisplay(normalized);
+    onChange(
+      normalized === "" || normalized === "-" ? null : Number(normalized)
+    );
+  };
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    const trimmed = display.trim();
+    // If user entered an expression, evaluate it and use the result
+    if (trimmed.startsWith("=")) {
+      const result = evaluateExpression(trimmed.slice(1).trim());
+      if (result !== null) {
+        onChange(result);
+        setDisplay(formatMoney(result));
+      }
+      return;
+    }
+    if (value != null && !Number.isNaN(value)) {
+      setDisplay(formatMoney(value));
+    } else {
+      setDisplay("");
+    }
+  };
+
   return (
     <div className="w-full">
       {label && (
@@ -50,24 +143,8 @@ export default function MoneyInput({
             setDisplay(value.toString());
           }
         }}
-        onChange={(e) => {
-          const raw = e.target.value.replace(/[^0-9.]/g, "");
-
-          // Prevent multiple decimals
-          if ((raw.match(/\./g) || []).length > 1) return;
-
-          setDisplay(raw);
-          onChange(raw === "" ? null : Number(raw));
-        }}
-        onBlur={() => {
-          setIsEditing(false);
-
-          if (value != null && !Number.isNaN(value)) {
-            setDisplay(formatMoney(value));
-          } else {
-            setDisplay("");
-          }
-        }}
+        onChange={handleChange}
+        onBlur={handleBlur}
       />
     </div>
   );

@@ -38,6 +38,9 @@ export default function Transactions() {
   const [showAI, setShowAI] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"success" | "error" | null>(
+    null
+  );
   const storeRef = useRef(transactionStore);
   const store = storeRef.current;
   const transactionsTabRef = useRef<HTMLDivElement>(null);
@@ -62,8 +65,16 @@ export default function Transactions() {
     "Clothes",
     "Online Shopping",
     "Books",
+    "Transfers",
     "N/A",
   ]);
+
+  // Clear save status after a few seconds
+  useEffect(() => {
+    if (saveStatus === null) return;
+    const t = setTimeout(() => setSaveStatus(null), 4000);
+    return () => clearTimeout(t);
+  }, [saveStatus]);
 
   // Subscribe to store (observer): any change notifies and we sync state for re-render
   useEffect(() => {
@@ -149,12 +160,14 @@ export default function Transactions() {
       return;
     }
 
+    setSaveStatus(null);
     try {
       setSaving(true);
       if (toInsert.length > 0) {
         const result = await insertTransactions(toInsert);
         if (!result.success) {
-          alert(`Failed to save new transactions: ${result.error}`);
+          setSaveStatus("error");
+          setSaving(false);
           return;
         }
       }
@@ -171,15 +184,17 @@ export default function Transactions() {
         );
         const failed = results.filter((r) => !r.success);
         if (failed.length > 0) {
-          console.error("Some updates failed:", failed.length);
+          setSaveStatus("error");
+          setSaving(false);
+          return;
         }
       }
       const data = await fetchTransactions();
       store.setTransactionsAndOriginal(data);
-      alert("Transactions saved to database successfully!");
+      setSaveStatus("success");
     } catch (error) {
       console.error("Error saving transactions:", error);
-      alert("Failed to save transactions. Please try again.");
+      setSaveStatus("error");
     } finally {
       setSaving(false);
     }
@@ -425,24 +440,38 @@ export default function Transactions() {
                   {/* RIGHT: Delete, Save, + Predict */}
                   {transactions.length > 0 && (
                     <div className="flex items-center gap-6">
-                      <span className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={handleSave}
-                          disabled={saving || !store.hasChangesToSave()}
-                          className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {saving ? "Saving..." : "Save"}
-                        </button>
-                        {store.hasChangesToSave() && !saving && (
-                          <span className="text-amber-400 text-sm">
-                            {store.getNewTransactions().length > 0 &&
-                              `${store.getNewTransactions().length} new`}
-                            {store.getNewTransactions().length > 0 &&
-                              store.getDirtyTransactions().length > 0 &&
-                              ", "}
-                            {store.getDirtyTransactions().length > 0 &&
-                              `${store.getDirtyTransactions().length} modified`}
+                      <span className="flex flex-col gap-0.5">
+                        <span className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleSave}
+                            disabled={saving || !store.hasChangesToSave()}
+                            className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {saving ? "Saving..." : "Save"}
+                          </button>
+                          {store.hasChangesToSave() && !saving && (
+                            <span className="text-amber-400 text-sm">
+                              {store.getNewTransactions().length > 0 &&
+                                `${store.getNewTransactions().length} new`}
+                              {store.getNewTransactions().length > 0 &&
+                                store.getDirtyTransactions().length > 0 &&
+                                ", "}
+                              {store.getDirtyTransactions().length > 0 &&
+                                `${
+                                  store.getDirtyTransactions().length
+                                } modified`}
+                            </span>
+                          )}
+                        </span>
+                        {saveStatus === "success" && (
+                          <span className="text-xs text-green-400">
+                            Transactions saved successfully.
+                          </span>
+                        )}
+                        {saveStatus === "error" && (
+                          <span className="text-xs text-red-400">
+                            Failed to save. Please try again.
                           </span>
                         )}
                       </span>

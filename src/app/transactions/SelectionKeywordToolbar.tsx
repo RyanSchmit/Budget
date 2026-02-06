@@ -5,7 +5,7 @@ import {
   getKeywordRules,
   setKeywordRules,
   getCategories,
-} from "./strategies/keywordStore";
+} from "./prediction-strategies/keywordStore";
 
 interface SelectionKeywordToolbarProps {
   /** Only show toolbar when selection is inside this element. */
