@@ -186,7 +186,85 @@ export function buildPredictionContext(
   };
 }
 
-// Categorize all N/A transactions using TF-IDF (async with batching)
+/** Serialize context for worker threads (Maps/Sets → plain objects/arrays). */
+function serializeContextForWorker(context: PredictionContext): {
+  categoryProfilesObj: Record<string, string[][]>;
+  allDocuments: string[][];
+  vocabularyArr: string[];
+  idfCacheObj: Record<string, number>;
+} {
+  return {
+    categoryProfilesObj: Object.fromEntries(context.categoryProfiles),
+    allDocuments: context.allDocuments,
+    vocabularyArr: [...context.vocabulary],
+    idfCacheObj: Object.fromEntries(context.idfCache),
+  };
+}
+
+/** Run TF-IDF prediction in worker threads (Node only). Returns null if workers unavailable. */
+async function categorizeNAWithWorkers(
+  uncategorized: Transaction[],
+  context: PredictionContext
+): Promise<{ id: string; category: string }[] | null> {
+  if (typeof process === "undefined" || !process.versions?.node) {
+    return null;
+  }
+
+  try {
+    const { Worker } = await import("worker_threads");
+    const path = await import("path");
+    const os = await import("os");
+
+    const workerPath = path.join(process.cwd(), "workers", "tfidf-worker.cjs");
+    const numWorkers = Math.min(
+      os.cpus().length,
+      Math.max(1, Math.ceil(uncategorized.length / 5))
+    );
+    const chunkSize = Math.ceil(uncategorized.length / numWorkers);
+    const serialized = serializeContextForWorker(context);
+
+    const workerPromises: Promise<{ id: string; category: string }[]>[] = [];
+    for (let i = 0; i < numWorkers; i++) {
+      const chunk = uncategorized.slice(
+        i * chunkSize,
+        i * chunkSize + chunkSize
+      );
+      if (chunk.length === 0) continue;
+
+      workerPromises.push(
+        new Promise((resolve, reject) => {
+          const worker = new Worker(workerPath, {
+            workerData: {
+              ...serialized,
+              transactions: chunk.map((tx) => ({
+                id: tx.id,
+                description: tx.description,
+              })),
+            },
+          });
+          worker.on(
+            "message",
+            (msg: { results: { id: string; category: string }[] }) => {
+              resolve(msg.results);
+            }
+          );
+          worker.on("error", reject);
+          worker.on("exit", (code) => {
+            if (code !== 0)
+              reject(new Error(`Worker stopped with code ${code}`));
+          });
+        })
+      );
+    }
+
+    const allResults = await Promise.all(workerPromises);
+    return allResults.flat();
+  } catch {
+    return null;
+  }
+}
+
+// Categorize all N/A transactions using TF-IDF (async with worker threads or batching)
 export async function categorizeNAWithTFIDF(
   transactions: Transaction[]
 ): Promise<Transaction[]> {
@@ -209,12 +287,24 @@ export async function categorizeNAWithTFIDF(
     return transactions;
   }
 
-  // Process transactions in batches to avoid blocking the UI
-  const batchSize = 10;
   const updatedTransactions = [...transactions];
 
+  // Try worker threads first (Node.js only)
+  const workerResults = await categorizeNAWithWorkers(uncategorized, context);
+  if (workerResults) {
+    const resultById = new Map(workerResults.map((r) => [r.id, r.category]));
+    for (let i = 0; i < updatedTransactions.length; i++) {
+      const cat = resultById.get(updatedTransactions[i].id);
+      if (cat !== undefined) {
+        updatedTransactions[i] = { ...updatedTransactions[i], category: cat };
+      }
+    }
+    return updatedTransactions;
+  }
+
+  // Fallback: process in batches (browser or when workers unavailable)
+  const batchSize = 10;
   for (let i = 0; i < uncategorized.length; i += batchSize) {
-    // Yield to browser every batch to prevent freezing
     await yieldToBrowser();
 
     const batch = uncategorized.slice(i, i + batchSize);

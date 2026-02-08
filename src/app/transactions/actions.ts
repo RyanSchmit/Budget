@@ -28,6 +28,36 @@ function convertDateFromISO(val: string | unknown): string {
 
 const PAGE_SIZE = 1000; // Supabase/PostgREST often cap at 1000 per request
 
+// Insert in batches to avoid request size limits; run several batches in parallel.
+// PostgREST/Supabase typically allow up to 1000 rows per request.
+const INSERT_BATCH_SIZE = 1000;
+const CONCURRENT_INSERTS = 8;
+
+/** Run async tasks with a max concurrency. */
+async function runWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let index = 0;
+
+  async function worker(): Promise<void> {
+    while (index < items.length) {
+      const i = index++;
+      if (i >= items.length) return;
+      results[i] = await fn(items[i], i);
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.min(concurrency, items.length) },
+    () => worker()
+  );
+  await Promise.all(workers);
+  return results;
+}
+
 export async function fetchTransactions(): Promise<Transaction[]> {
   try {
     const supabase = createAdminClient();
@@ -87,8 +117,6 @@ export async function insertTransactions(
   transactions: Transaction[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
-
     // Only insert new rows (e.g. from CSV). DB rows have UUID id (transact_id).
     const newOnes = transactions.filter((t) => !isFromDb(t.id));
     if (newOnes.length === 0) return { success: true };
@@ -101,11 +129,26 @@ export async function insertTransactions(
       amount: Number(t.amount),
     }));
 
-    const { error } = await supabase.from("transactions").insert(rows);
+    // Chunk rows and insert in parallel (multiple batches at a time).
+    const batches: (typeof rows)[] = [];
+    for (let i = 0; i < rows.length; i += INSERT_BATCH_SIZE) {
+      batches.push(rows.slice(i, i + INSERT_BATCH_SIZE));
+    }
 
-    if (error) {
-      console.error("Error inserting transactions:", error);
-      return { success: false, error: error.message };
+    const supabase = createAdminClient();
+    const batchResults = await runWithConcurrency(
+      batches,
+      CONCURRENT_INSERTS,
+      async (batch) => {
+        const { error } = await supabase.from("transactions").insert(batch);
+        return { error };
+      }
+    );
+
+    const firstError = batchResults.find((r) => r.error);
+    if (firstError?.error) {
+      console.error("Error inserting transactions:", firstError.error);
+      return { success: false, error: firstError.error.message };
     }
     return { success: true };
   } catch (error) {
