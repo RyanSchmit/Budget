@@ -3,7 +3,33 @@ export interface KeywordRule {
   category: string;
 }
 
-export const keywordRules: KeywordRule[] = [
+export const DEFAULT_CATEGORIES = [
+  "Restaurants",
+  "College",
+  "Income",
+  "Trips",
+  "Utilities",
+  "Energy Drink",
+  "Groceries",
+  "Bars",
+  "Golf",
+  "Transportation",
+  "Alcohol",
+  "Snacks",
+  "Subscriptions",
+  "Sports Games",
+  "Traffic Tickets",
+  "Gym",
+  "Gambling",
+  "Clothes",
+  "Online Shopping",
+  "Books",
+  "Transfers",
+  "Gas",
+  "N/A",
+];
+
+export const defaultKeywordRules: KeywordRule[] = [
   {
     keywords: [
       "Mcdonald",

@@ -15,6 +15,7 @@ import {
 import KeywordsTab from "./KeywordsTab";
 import SelectionKeywordToolbar from "./SelectionKeywordToolbar";
 import { useTransactionSaving } from "./useTransactionSaving";
+import { DEFAULT_CATEGORIES } from "./prediction-strategies/defaults";
 
 // Single store instance (observer subject) for transaction state
 const transactionStore = TransactionStore.getInstance();
@@ -41,30 +42,7 @@ export default function Transactions() {
   const transactionsTabRef = useRef<HTMLDivElement>(null);
   const { saving, saveStatus, handleSave, savePending } =
     useTransactionSaving(store);
-  const [categories, setCategories] = useState<string[]>([
-    "Restaurants",
-    "College",
-    "Income",
-    "Trips",
-    "Utilities",
-    "Energy Drink",
-    "Groceries",
-    "Bars",
-    "Golf",
-    "Transportation",
-    "Alcohol",
-    "Snacks",
-    "Subscriptions",
-    "Sports Games",
-    "Traffic Tickets",
-    "Gym",
-    "Gambling",
-    "Clothes",
-    "Online Shopping",
-    "Books",
-    "Transfers",
-    "N/A",
-  ]);
+  const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
 
   // Subscribe to store (observer): any change notifies and we sync state for re-render
   useEffect(() => {

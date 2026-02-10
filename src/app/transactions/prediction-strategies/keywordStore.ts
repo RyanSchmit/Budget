@@ -1,5 +1,5 @@
-import type { KeywordRule } from "./keywords";
-import { keywordRules as defaultKeywordRules } from "./keywords";
+import type { KeywordRule } from "./defaults";
+import { DEFAULT_CATEGORIES, defaultKeywordRules } from "./defaults";
 
 const STORAGE_KEY = "budget_keyword_rules";
 
@@ -33,30 +33,6 @@ export function setKeywordRules(rules: KeywordRule[]): void {
     }
   }
 }
-
-const DEFAULT_CATEGORIES = [
-  "Restaurants",
-  "College",
-  "Income",
-  "Trips",
-  "Utilities",
-  "Energy Drink",
-  "Groceries",
-  "Bars",
-  "Golf",
-  "Transportation",
-  "Alcohol",
-  "Snacks",
-  "Subscriptions",
-  "Sports Games",
-  "Traffic Tickets",
-  "Gym",
-  "Gambling",
-  "Clothes",
-  "Online Shopping",
-  "Books",
-  "N/A",
-];
 
 /** All categories (from rules + defaults) for dropdowns. */
 export function getCategories(): string[] {

@@ -1,35 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import type { KeywordRule } from "./prediction-strategies/keywords";
+import type { KeywordRule } from "./prediction-strategies/defaults";
 import {
   getKeywordRules,
   setKeywordRules,
 } from "./prediction-strategies/keywordStore";
-
-const DEFAULT_CATEGORIES = [
-  "Restaurants",
-  "College",
-  "Income",
-  "Trips",
-  "Utilities",
-  "Energy Drink",
-  "Groceries",
-  "Bars",
-  "Golf",
-  "Transportation",
-  "Alcohol",
-  "Snacks",
-  "Subscriptions",
-  "Sports Games",
-  "Traffic Tickets",
-  "Gym",
-  "Gambling",
-  "Clothes",
-  "Online Shopping",
-  "Books",
-  "N/A",
-];
+import { DEFAULT_CATEGORIES } from "./prediction-strategies/defaults";
 
 function allCategories(rules: KeywordRule[]): string[] {
   const fromRules = new Set(rules.map((r) => r.category));
