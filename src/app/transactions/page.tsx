@@ -9,13 +9,12 @@ import { Transaction } from "../types";
 import { TransactionStore } from "./TransactionStore";
 import {
   fetchTransactions,
-  insertTransactions,
-  updateTransaction,
   deleteTransactions,
   predictCategoriesWithTFIDF,
 } from "./actions";
 import KeywordsTab from "./KeywordsTab";
 import SelectionKeywordToolbar from "./SelectionKeywordToolbar";
+import { useTransactionSaving } from "./useTransactionSaving";
 
 // Single store instance (observer subject) for transaction state
 const transactionStore = TransactionStore.getInstance();
@@ -37,13 +36,11 @@ export default function Transactions() {
   );
   const [showAI, setShowAI] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<"success" | "error" | null>(
-    null
-  );
   const storeRef = useRef(transactionStore);
   const store = storeRef.current;
   const transactionsTabRef = useRef<HTMLDivElement>(null);
+  const { saving, saveStatus, handleSave, savePending } =
+    useTransactionSaving(store);
   const [categories, setCategories] = useState<string[]>([
     "Restaurants",
     "College",
@@ -68,13 +65,6 @@ export default function Transactions() {
     "Transfers",
     "N/A",
   ]);
-
-  // Clear save status after a few seconds
-  useEffect(() => {
-    if (saveStatus === null) return;
-    const t = setTimeout(() => setSaveStatus(null), 4000);
-    return () => clearTimeout(t);
-  }, [saveStatus]);
 
   // Subscribe to store (observer): any change notifies and we sync state for re-render
   useEffect(() => {
@@ -153,78 +143,6 @@ export default function Transactions() {
     });
   };
 
-  async function handleSave() {
-    const toInsert = store.getNewTransactions();
-    const toUpdate = store.getDirtyTransactions();
-    if (toInsert.length === 0 && toUpdate.length === 0) {
-      return;
-    }
-
-    setSaveStatus(null);
-    try {
-      setSaving(true);
-      if (toInsert.length > 0) {
-        const result = await insertTransactions(toInsert);
-        if (!result.success) {
-          setSaveStatus("error");
-          setSaving(false);
-          return;
-        }
-      }
-      if (toUpdate.length > 0) {
-        const results = await Promise.all(
-          toUpdate.map((t) =>
-            updateTransaction(t.id, {
-              date: t.date,
-              description: t.description,
-              category: t.category,
-              amount: t.amount,
-            })
-          )
-        );
-        const failed = results.filter((r) => !r.success);
-        if (failed.length > 0) {
-          setSaveStatus("error");
-          setSaving(false);
-          return;
-        }
-      }
-      const data = await fetchTransactions();
-      store.setTransactionsAndOriginal(data);
-      setSaveStatus("success");
-    } catch (error) {
-      console.error("Error saving transactions:", error);
-      setSaveStatus("error");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  // ⌨️ Keyboard shortcut: Ctrl+S / Cmd+S to Save
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        document.activeElement &&
-        ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)
-      ) {
-        return;
-      }
-
-      const isMac = navigator.platform.toUpperCase().includes("MAC");
-      const isSave =
-        (isMac && e.metaKey && e.key === "s") ||
-        (!isMac && e.ctrlKey && e.key === "s");
-
-      if (isSave) {
-        e.preventDefault();
-        if (store.hasChangesToSave() && !saving) handleSave();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [store, saving]);
-
   const handlePredict = async () => {
     const current = store.getTransactions();
     if (!current || current.length === 0) return;
@@ -259,26 +177,9 @@ export default function Transactions() {
       setFileName("");
       return;
     }
-
-    try {
-      const result = await insertTransactions(uniquePendingTransactions);
-      if (result.success) {
-        const data = await fetchTransactions();
-        store.setTransactionsAndOriginal(data);
-        setPendingTransactions([]);
-        setFileName("");
-      } else {
-        console.error("Failed to save new transactions:", result.error);
-        store.addPending(uniquePendingTransactions);
-        setPendingTransactions([]);
-        setFileName("");
-      }
-    } catch (error) {
-      console.error("Error saving new transactions:", error);
-      store.addPending(uniquePendingTransactions);
-      setPendingTransactions([]);
-      setFileName("");
-    }
+    await savePending(uniquePendingTransactions);
+    setPendingTransactions([]);
+    setFileName("");
   };
 
   const onUpdateTransaction = (
