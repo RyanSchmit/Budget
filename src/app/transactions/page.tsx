@@ -1,183 +1,76 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import Navbar from "../Navbar";
 import TransactionsTable from "../transactions/table";
-import Papa from "papaparse";
+import { useCategories } from "./categories";
+import { createCsvUploadHandlers } from "./csv";
+import { useTransactionFilter } from "./filter";
+import { useSaveShortcut } from "./save";
 import { rulePredict } from "../transactions/predictions";
 import { Transaction } from "../types";
 
 export default function Transactions() {
+  // Transaction state
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [pendingTransactions, setPendingTransactions] = useState<Transaction[]>(
     [],
   );
+
+  // File state
   const [fileName, setFileName] = useState("");
+
+  // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Filter state
   const [searchQuery, setSearchQuery] = useState("");
   const [showDateFilter, setShowDateFilter] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+
+  // Category state
   const [categoryFilter, setCategoryFilter] = useState("ALL");
-  const [showAI, setShowAI] = useState(false);
-  const [categories, setCategories] = useState<string[]>([
-    "Restaurants",
-    "College",
-    "Income",
-    "Trips",
-    "Utilities",
-    "Energy Drink",
-    "Groceries",
-    "Bars",
-    "Golf",
-    "Transportation",
-    "Alcohol",
-    "Snacks",
-    "Subscriptions",
-    "Sports Games",
-    "Traffic Tickets",
-    "Gym",
-    "Gambling",
-    "Clothes",
-    "Online Shopping",
-    "Books",
-    "N/A",
-  ]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setFileName(file.name);
-    handleCSVUpload(file);
-  };
-
-  const handleCSVUpload = (file: File) => {
-    if (!(file instanceof File)) return;
-
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: ({ data }) => {
-        const parsed: Transaction[] = (data as any[]).map((row) => {
-          const debitRaw = row.Debit ?? row.debit ?? "";
-          const creditRaw = row.Credit ?? row.credit ?? "";
-          const fallbackRaw = row.Amount ?? row.amount ?? "";
-          const raw = debitRaw || creditRaw || fallbackRaw || "0";
-
-          // remove currency characters and commas, keep digits, dot and parentheses for negative
-          const cleaned = String(raw).replace(/[$,]/g, "").trim();
-          // remove parentheses for parsing but remember if they existed (accounting-style negative)
-          const hasParens = cleaned.includes("(") && cleaned.includes(")");
-          const numeric = Number(cleaned.replace(/[()]/g, "") || 0);
-
-          let amount = numeric;
-          if (debitRaw) {
-            amount = -Math.abs(numeric);
-          } else if (creditRaw) {
-            amount = Math.abs(numeric);
-          } else if (hasParens || String(raw).includes("-")) {
-            amount = -Math.abs(numeric);
-          } else {
-            amount = Math.abs(numeric);
-          }
-
-          return {
-            id: crypto.randomUUID(),
-            date: row.Date || row.date || "",
-            description: row.Description || row.description || "",
-            category: "N/A",
-            amount,
-          };
-        });
-
-        // ❗ Store temporarily
-        setPendingTransactions(parsed);
-      },
-    });
-  };
-
-  function handleSave() {
-    const filename = "transactions.json";
-    const array = transactions;
-    // 1. Convert the array to a JSON string (pretty-printed with 4 spaces for readability).
-    const jsonString = JSON.stringify(array, null, 4);
-
-    // 2. Create a Blob (Binary Large Object) from the JSON string.
-    const blob = new Blob([jsonString], { type: "application/json" });
-
-    // 3. Create a temporary URL for the Blob.
-    const url = URL.createObjectURL(blob);
-
-    // 4. Create an anchor element to trigger the download.
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename; // Set the file name for the download.
-
-    // 5. Append the anchor to the document body and simulate a click.
-    document.body.appendChild(a);
-    a.click();
-
-    // 6. Clean up: remove the anchor and revoke the temporary URL.
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  // ⌨️ Keyboard shortcut: Ctrl+S / Cmd+S to Save
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // 🚫 Ignore shortcuts while typing in inputs
-      if (
-        document.activeElement &&
-        ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)
-      ) {
-        return;
-      }
-
-      const isMac = navigator.platform.toUpperCase().includes("MAC");
-      const isSave =
-        (isMac && e.metaKey && e.key === "s") ||
-        (!isMac && e.ctrlKey && e.key === "s");
-
-      if (isSave) {
-        e.preventDefault();
-        if (transactions.length > 0) {
-          handleSave();
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [transactions]);
-
-  const handlePredict = () => {
-    if (!transactions || transactions.length === 0) return;
-
-    // Apply keyword-based rules first
-    const preds = transactions.map((t) => {
-      return rulePredict(t.description, t.amount);
-    });
-
-    let updatedTransactions = transactions.map((t, i) => ({
-      ...t,
-      category: preds[i] ?? t.category ?? "N/A",
-    }));
-
-    setTransactions(updatedTransactions);
-  };
-
-  const getTransactionKey = (t: Transaction) =>
-    `${t.date}|${t.description}|${t.amount}`;
-
-  const uniquePendingTransactions = pendingTransactions.filter(
-    (pending) =>
-      !transactions.some(
-        (existing) =>
-          getTransactionKey(existing) === getTransactionKey(pending),
-      ),
+  // CSV upload handlers
+  const { handleFileChange } = useMemo(
+    () => createCsvUploadHandlers({ setFileName, setPendingTransactions }),
+    [setFileName, setPendingTransactions],
   );
 
+  // Category state
+  const { categories, setCategories } = useCategories();
+
+  const uniquePendingTransactions = useMemo(() => {
+    const keyFor = (t: Transaction) =>
+      `${t.date}__${String(t.description).trim().toLowerCase()}__${t.amount}`;
+
+    const existingKeys = new Set(transactions.map(keyFor));
+    const seen = new Set<string>();
+
+    return pendingTransactions.filter((t) => {
+      const key = keyFor(t);
+      if (existingKeys.has(key)) return false;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [pendingTransactions, transactions]);
+
+  const { filteredTransactions, allVisibleSelected, handleSelectAll } =
+    useTransactionFilter({
+      transactions,
+      searchQuery,
+      categoryFilter,
+      startDate,
+      endDate,
+      selectedIds,
+      setSelectedIds,
+    });
+
+  const { handleSave } = useSaveShortcut(transactions);
+
+  // Add transactions
   const handleAddTransactions = () => {
     setTransactions((prev) => [...prev, ...uniquePendingTransactions]);
     setPendingTransactions([]);
@@ -214,36 +107,26 @@ export default function Transactions() {
     });
   };
 
-  const filteredTransactions = transactions.filter((t) => {
-    // 🔍 Description search
-    const matchesSearch = t.description
-      .toLowerCase()
-      .includes(searchQuery.trim().toLowerCase());
+  // Predict categories
+  const handlePredict = () => {
+    setTransactions((prev) => {
+      const predictedCategories = new Set<string>();
 
-    // 🏷️ Category
-    const matchesCategory =
-      categoryFilter === "ALL" || t.category === categoryFilter;
+      const next = prev.map((t) => {
+        // Don't overwrite manually-set categories
+        if (t.category && t.category !== "N/A") return t;
 
-    // 📅 Date range
-    const txDate = new Date(t.date);
-    const afterStart = startDate ? txDate >= new Date(startDate) : true;
-    const beforeEnd = endDate ? txDate <= new Date(endDate) : true;
+        const predicted = rulePredict(t.description, t.amount);
+        predictedCategories.add(predicted);
+        return { ...t, category: predicted };
+      });
 
-    return matchesSearch && matchesCategory && afterStart && beforeEnd;
-  });
-
-  const allVisibleSelected =
-    filteredTransactions.length > 0 &&
-    filteredTransactions.every((t) => selectedIds.has(t.id));
-
-  const handleSelectAll = () => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-
-      if (allVisibleSelected) {
-        filteredTransactions.forEach((t) => next.delete(t.id));
-      } else {
-        filteredTransactions.forEach((t) => next.add(t.id));
+      if (predictedCategories.size > 0) {
+        setCategories((cats) => {
+          const merged = new Set(cats);
+          predictedCategories.forEach((c) => merged.add(c));
+          return Array.from(merged);
+        });
       }
 
       return next;

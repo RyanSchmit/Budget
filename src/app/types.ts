@@ -1,3 +1,8 @@
+export interface Rule {
+  keywords: string[];
+  category: string;
+}
+
 export interface Transaction {
   id: string;
   date: string;
