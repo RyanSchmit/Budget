@@ -1,18 +1,20 @@
 "use client";
 
 import MoneyInput from "../MoneyInput";
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Transaction } from "../types";
 
 interface TransactionsTableProps {
   transactions: Transaction[];
   selectedIds: Set<string>;
-  onUpdateTransaction: (id: string, field: string, value: string | number) => void;
+  onUpdateTransaction: (
+    id: string,
+    field: keyof Transaction,
+    value: string | number,
+  ) => void;
   onToggleSelect: (id: string) => void;
   onToggleSelectAll: () => void;
   allVisibleSelected: boolean;
-  categories: string[];
-  setCategories: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
 interface SortConfig {
@@ -27,22 +29,16 @@ export default function TransactionsTable({
   onToggleSelect,
   onToggleSelectAll,
   allVisibleSelected,
-  categories,
-  setCategories,
 }: TransactionsTableProps) {
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: null,
-    direction: "desc", // default highest → lowest
+    direction: "desc",
   });
 
   const handleSort = (key: keyof Transaction) => {
     setSortConfig((prev) => {
       if (prev.key === key) {
-        // toggle direction
-        return {
-          key,
-          direction: prev.direction === "desc" ? "asc" : "desc",
-        };
+        return { key, direction: prev.direction === "desc" ? "asc" : "desc" };
       }
       return { key, direction: "desc" };
     });
@@ -63,28 +59,24 @@ export default function TransactionsTable({
     if (!sortConfig.key) return transactions;
 
     return [...transactions].sort((a, b) => {
-      let aVal = a[sortConfig.key!];
-      let bVal = b[sortConfig.key!];
+      const aVal = a[sortConfig.key!];
+      const bVal = b[sortConfig.key!];
 
-      // ✅ Date sorting: most recent → least recent
       if (sortConfig.key === "date") {
-        const aDate = new Date(aVal as string);
-        const bDate = new Date(bVal as string);
-
+        const aDate = new Date(String(aVal));
+        const bDate = new Date(String(bVal));
         return sortConfig.direction === "desc"
-          ? bDate.getTime() - aDate.getTime() // most recent first
+          ? bDate.getTime() - aDate.getTime()
           : aDate.getTime() - bDate.getTime();
       }
 
-      // ✅ Numeric sorting (amount)
       if (typeof aVal === "number" && typeof bVal === "number") {
         return sortConfig.direction === "desc" ? bVal - aVal : aVal - bVal;
       }
 
-      // ✅ String sorting (description, category)
       return sortConfig.direction === "desc"
-        ? String(bVal).localeCompare(String(aVal))
-        : String(aVal).localeCompare(String(bVal));
+        ? String(bVal ?? "").localeCompare(String(aVal ?? ""))
+        : String(aVal ?? "").localeCompare(String(bVal ?? ""));
     });
   }, [transactions, sortConfig]);
 
@@ -111,11 +103,12 @@ export default function TransactionsTable({
                   className="accent-red-600"
                 />
               </th>
+
               <th
                 onClick={() => handleSort("date")}
                 className="px-4 py-3 text-left cursor-pointer select-none"
               >
-                Date
+                Date{" "}
                 <SortArrow
                   active={sortConfig.key === "date"}
                   direction={sortConfig.direction}
@@ -126,7 +119,7 @@ export default function TransactionsTable({
                 onClick={() => handleSort("description")}
                 className="px-4 py-3 text-left cursor-pointer select-none"
               >
-                Description
+                Description{" "}
                 <SortArrow
                   active={sortConfig.key === "description"}
                   direction={sortConfig.direction}
@@ -137,7 +130,7 @@ export default function TransactionsTable({
                 onClick={() => handleSort("category")}
                 className="px-4 py-3 text-left cursor-pointer select-none"
               >
-                Category
+                Category{" "}
                 <SortArrow
                   active={sortConfig.key === "category"}
                   direction={sortConfig.direction}
@@ -148,7 +141,7 @@ export default function TransactionsTable({
                 onClick={() => handleSort("amount")}
                 className="px-4 py-3 text-left cursor-pointer select-none"
               >
-                Amount
+                Amount{" "}
                 <SortArrow
                   active={sortConfig.key === "amount"}
                   direction={sortConfig.direction}
@@ -195,60 +188,16 @@ export default function TransactionsTable({
                 </td>
 
                 {/* Category */}
-                <td className="px-4 py-2" style={{ width: "16%" }}>
-                  {t.category === "__NEW__" ? (
-                    <input
-                      type="text"
-                      autoFocus
-                      placeholder="New category"
-                      className="w-full bg-transparent border border-gray-700 rounded px-2 py-1 text-sm"
-                      onBlur={(e) => {
-                        const value = e.target.value.trim();
-
-                        if (!value) {
-                          onUpdateTransaction(t.id, "category", "N/A");
-                          return;
-                        }
-
-                        const normalized = value.toLowerCase();
-
-                        setCategories((prev) => {
-                          const exists = prev.some(
-                            (c) => c.toLowerCase() === normalized
-                          );
-
-                          if (exists) return prev;
-
-                          return [...prev, value].sort();
-                        });
-
-                        onUpdateTransaction(t.id, "category", value);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                      }}
-                    />
-                  ) : (
-                    <select
-                      value={t.category}
-                      onChange={(e) => {
-                        if (e.target.value === "__NEW__") {
-                          onUpdateTransaction(t.id, "category", "__NEW__");
-                        } else {
-                          onUpdateTransaction(t.id, "category", e.target.value);
-                        }
-                      }}
-                      className="w-full bg-black border border-gray-700 rounded px-2 py-1 text-sm"
-                    >
-                      {categories.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
-
-                      <option value="__NEW__">+ Add new…</option>
-                    </select>
-                  )}
+                <td className="px-4 py-2">
+                  <input
+                    type="text"
+                    value={t.category ?? ""}
+                    onChange={(e) =>
+                      onUpdateTransaction(t.id, "category", e.target.value)
+                    }
+                    className="w-full bg-transparent border border-gray-700 rounded px-2 py-1 text-sm"
+                    placeholder="Category"
+                  />
                 </td>
 
                 {/* Amount */}
@@ -266,6 +215,10 @@ export default function TransactionsTable({
             ))}
           </tbody>
         </table>
+
+        {transactions.length === 0 && (
+          <div className="p-4 text-sm text-gray-400">No transactions.</div>
+        )}
       </div>
     </div>
   );

@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 const defaultCategories = [
   "Restaurants",
   "College",
@@ -23,9 +21,3 @@ const defaultCategories = [
   "Books",
   "N/A",
 ];
-
-export function useCategories() {
-  const [categories, setCategories] = useState<string[]>(defaultCategories);
-
-  return { categories, setCategories };
-}

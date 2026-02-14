@@ -1,69 +1,110 @@
 "use client";
-
 import Papa from "papaparse";
-import type { ChangeEvent, Dispatch, SetStateAction } from "react";
-import type { Transaction } from "../types";
+import { Transaction } from "../types";
+import { useState } from "react";
 
-type SetState<T> = Dispatch<SetStateAction<T>>;
+const handleCSVUpload = (
+  file: File,
+  onComplete: (transactions: Transaction[]) => void,
+): void => {
+  if (!(file instanceof File)) return;
 
-export function createCsvUploadHandlers(params: {
-  setFileName: SetState<string>;
-  setPendingTransactions: SetState<Transaction[]>;
-}) {
-  const { setFileName, setPendingTransactions } = params;
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete: ({ data }) => {
+      const parsed: Transaction[] = (data as any[]).map((row) => {
+        const debitRaw = row.Debit ?? row.debit ?? "";
+        const creditRaw = row.Credit ?? row.credit ?? "";
+        const fallbackRaw = row.Amount ?? row.amount ?? "";
+        const raw = debitRaw || creditRaw || fallbackRaw || "0";
 
-  const handleCSVUpload = (file: File) => {
-    if (!(file instanceof File)) return;
+        const cleaned = String(raw).replace(/[$,]/g, "").trim();
+        const hasParens = cleaned.includes("(") && cleaned.includes(")");
+        const numeric = Number(cleaned.replace(/[()]/g, "") || 0);
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: ({ data }) => {
-        const parsed: Transaction[] = (data as any[]).map((row) => {
-          const debitRaw = row.Debit ?? row.debit ?? "";
-          const creditRaw = row.Credit ?? row.credit ?? "";
-          const fallbackRaw = row.Amount ?? row.amount ?? "";
-          const raw = debitRaw || creditRaw || fallbackRaw || "0";
+        let amount = numeric;
+        if (debitRaw) {
+          amount = -Math.abs(numeric);
+        } else if (creditRaw) {
+          amount = Math.abs(numeric);
+        } else if (hasParens || String(raw).includes("-")) {
+          amount = -Math.abs(numeric);
+        } else {
+          amount = Math.abs(numeric);
+        }
 
-          // remove currency characters and commas, keep digits, dot and parentheses for negative
-          const cleaned = String(raw).replace(/[$,]/g, "").trim();
-          // remove parentheses for parsing but remember if they existed (accounting-style negative)
-          const hasParens = cleaned.includes("(") && cleaned.includes(")");
-          const numeric = Number(cleaned.replace(/[()]/g, "") || 0);
+        return {
+          id: crypto.randomUUID(),
+          date: row.Date || row.date || "",
+          description: row.Description || row.description || "",
+          category: "N/A",
+          amount,
+        };
+      });
 
-          let amount = numeric;
-          if (debitRaw) {
-            amount = -Math.abs(numeric);
-          } else if (creditRaw) {
-            amount = Math.abs(numeric);
-          } else if (hasParens || String(raw).includes("-")) {
-            amount = -Math.abs(numeric);
-          } else {
-            amount = Math.abs(numeric);
-          }
+      onComplete(parsed);
+    },
+  });
+};
 
-          return {
-            id: crypto.randomUUID(),
-            date: row.Date || row.date || "",
-            description: row.Description || row.description || "",
-            category: "N/A",
-            amount,
-          };
-        });
+type FileUIProps = {
+  pendingCount: number;
+  onParsed: (transactions: Transaction[]) => void;
+  onAdd: () => void;
+};
 
-        // Store temporarily
-        setPendingTransactions(parsed);
-      },
-    });
-  };
+export default function FileUI({ pendingCount, onParsed, onAdd }: FileUIProps) {
+  const [fileName, setFileName] = useState("");
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setFileName(file.name);
-    handleCSVUpload(file);
+    handleCSVUpload(file, onParsed);
   };
 
-  return { handleFileChange, handleCSVUpload };
+  const handleAddClick = () => {
+    onAdd();
+    setFileName("");
+  };
+
+  return (
+    <div>
+      <div className="mt-4 flex items-center gap-4">
+        <div className="mt-4 flex items-center justify-between gap-12 w-full">
+          <div className="flex items-center gap-6">
+            <label
+              htmlFor="csvFile"
+              className="cursor-pointer rounded-md bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/20"
+            >
+              {fileName || "Choose CSV"}
+            </label>
+
+            <input
+              id="csvFile"
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+
+            <button
+              type="button"
+              disabled={pendingCount === 0}
+              onClick={handleAddClick}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Add
+            </button>
+
+            {pendingCount > 0 && (
+              <p className="text-sm text-gray-400">{pendingCount} ready</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

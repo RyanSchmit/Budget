@@ -1,4 +1,4 @@
-import { keywordRules } from "./keywords";
+import { keywordRules } from "./keywords/keywords";
 
 export const rulePredict = (description: string, amount: number): string => {
   const text = String(description).toLowerCase();
