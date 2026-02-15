@@ -1,6 +1,6 @@
 import { Rule } from "../../types";
 
-export const keywordRules: Rule[] = [
+export const defaultKeyWords: Rule[] = [
   {
     keywords: [
       "mcdonald",

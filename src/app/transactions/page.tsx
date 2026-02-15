@@ -1,7 +1,7 @@
 "use client";
 
 import Navbar from "../Navbar";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Transaction } from "../types";
 import FileUI from "./csv";
 import {
@@ -11,6 +11,7 @@ import {
   toggleSelectAllVisible,
 } from "./filter";
 import TransactionsTable from "./table";
+import AddTransactionButton from "./save";
 
 export default function Transactions() {
   // Transaction States
@@ -70,11 +71,6 @@ export default function Transactions() {
     setPendingTransactions([]);
   };
 
-  // Debug: log updated transactions
-  useEffect(() => {
-    console.log("transactions updated:", transactions);
-  }, [transactions]);
-
   // Filtering
   const filteredTransactions = useMemo(() => {
     return filterTransactions(transactions, {
@@ -120,6 +116,8 @@ export default function Transactions() {
             showDateFilter={showDateFilter}
             setShowDateFilter={setShowDateFilter}
           />
+
+          <AddTransactionButton />
 
           <div className="mb-8 mt-8">
             <TransactionsTable
