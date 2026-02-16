@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { keywordRules } from "./keywords";
+import { defaultKeyWords } from "./keywords";
 import { Rule } from "../../types";
 
 function allCategories(rules: Rule[]): string[] {
@@ -16,7 +16,7 @@ export default function KeywordsTab() {
   const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
 
   const load = useCallback(() => {
-    setRules(keywordRules);
+    setRules(defaultKeyWords);
   }, []);
 
   useEffect(() => {

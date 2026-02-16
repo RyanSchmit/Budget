@@ -11,7 +11,8 @@ import {
   toggleSelectAllVisible,
 } from "./filter";
 import TransactionsTable from "./table";
-import AddTransactionButton from "./save";
+import KeywordsTab from "./keywords/KeywordsTab";
+import SaveButton from "./save";
 
 export default function Transactions() {
   // Transaction States
@@ -40,6 +41,11 @@ export default function Transactions() {
 
   // Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Keyword States
+  const [activeTab, setActiveTab] = useState<"transactions" | "keywords">(
+    "transactions",
+  );
 
   const getTransactionKey = (t: Transaction) =>
     `${t.date}|${t.description}|${t.amount}`;
@@ -98,47 +104,93 @@ export default function Transactions() {
 
       <main className="pt-20 flex min-h-screen w-full flex-col items-center gap-8">
         <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-          <FileUI
-            pendingCount={uniquePendingTransactions.length}
-            onParsed={setPendingTransactions}
-            onAdd={handleAddTransactions}
-          />
-
-          <FilterBar
-            transactionsCount={transactions.length}
-            filteredCount={filteredTransactions.length}
-            categories={categories}
-            filters={{ searchQuery, categoryFilter, startDate, endDate }}
-            setSearchQuery={setSearchQuery}
-            setCategoryFilter={setCategoryFilter}
-            setStartDate={setStartDate}
-            setEndDate={setEndDate}
-            showDateFilter={showDateFilter}
-            setShowDateFilter={setShowDateFilter}
-          />
-
-          <AddTransactionButton />
-
-          <div className="mb-8 mt-8">
-            <TransactionsTable
-              transactions={filteredTransactions}
-              selectedIds={selectedIds}
-              onToggleSelect={(id) => {
-                setSelectedIds((prev) => {
-                  const next = new Set(prev);
-                  next.has(id) ? next.delete(id) : next.add(id);
-                  return next;
-                });
-              }}
-              onToggleSelectAll={handleSelectAll}
-              allVisibleSelected={allVisibleSelected}
-              onUpdateTransaction={(id, field, value) => {
-                setTransactions((prev) =>
-                  prev.map((t) => (t.id === id ? { ...t, [field]: value } : t)),
-                );
-              }}
-            />
+          <div className="mt-4 flex items-center gap-6 border-b border-gray-800 pb-2">
+            <nav
+              className="flex gap-1"
+              role="tablist"
+              aria-label="Transactions tabs"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "transactions"}
+                onClick={() => setActiveTab("transactions")}
+                className={`rounded-t-md px-4 py-2 text-sm font-medium ${
+                  activeTab === "transactions"
+                    ? "bg-gray-800 text-white"
+                    : "text-gray-400 hover:text-white hover:bg-gray-800/60"
+                }`}
+              >
+                Transactions
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "keywords"}
+                onClick={() => setActiveTab("keywords")}
+                className={`rounded-t-md px-4 py-2 text-sm font-medium ${
+                  activeTab === "keywords"
+                    ? "bg-gray-800 text-white"
+                    : "text-gray-400 hover:text-white hover:bg-gray-800/60"
+                }`}
+              >
+                Keywords
+              </button>
+            </nav>
           </div>
+
+          {activeTab === "transactions" ? (
+            <>
+              <FileUI
+                pendingCount={uniquePendingTransactions.length}
+                onParsed={setPendingTransactions}
+                onAdd={handleAddTransactions}
+              />
+
+              <FilterBar
+                transactionsCount={transactions.length}
+                filteredCount={filteredTransactions.length}
+                categories={categories}
+                filters={{ searchQuery, categoryFilter, startDate, endDate }}
+                setSearchQuery={setSearchQuery}
+                setCategoryFilter={setCategoryFilter}
+                setStartDate={setStartDate}
+                setEndDate={setEndDate}
+                showDateFilter={showDateFilter}
+                setShowDateFilter={setShowDateFilter}
+              />
+
+              <SaveButton transactions={transactions} />
+
+              <div className="mb-8 mt-8">
+                <TransactionsTable
+                  transactions={filteredTransactions}
+                  selectedIds={selectedIds}
+                  onToggleSelect={(id) => {
+                    setSelectedIds((prev) => {
+                      const next = new Set(prev);
+                      next.has(id) ? next.delete(id) : next.add(id);
+                      return next;
+                    });
+                  }}
+                  onToggleSelectAll={handleSelectAll}
+                  allVisibleSelected={allVisibleSelected}
+                  onUpdateTransaction={(id, field, value) => {
+                    setTransactions((prev) =>
+                      prev.map((t) =>
+                        t.id === id ? { ...t, [field]: value } : t,
+                      ),
+                    );
+                  }}
+                />
+              </div>
+            </>
+          ) : (
+            // Render Keywords tab - adjust props if your KeywordsTab expects them
+            <div className="mt-6">
+              <KeywordsTab />
+            </div>
+          )}
         </div>
       </main>
     </div>

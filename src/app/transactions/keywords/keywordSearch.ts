@@ -1,4 +1,4 @@
-import { defaultKeyWords } from "./keywords/keywords";
+import { defaultKeyWords } from "./keywords";
 
 export const rulePredict = (description: string, amount: number): string => {
   const text = String(description).toLowerCase();
