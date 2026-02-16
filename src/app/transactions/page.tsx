@@ -13,6 +13,7 @@ import {
 import TransactionsTable from "./table";
 import KeywordsTab from "./keywords/KeywordsTab";
 import SaveButton from "./save";
+import LoadTransactions from "./loadTransactions";
 
 export default function Transactions() {
   // Transaction States
@@ -147,20 +148,34 @@ export default function Transactions() {
                 onAdd={handleAddTransactions}
               />
 
-              <FilterBar
-                transactionsCount={transactions.length}
-                filteredCount={filteredTransactions.length}
-                categories={categories}
-                filters={{ searchQuery, categoryFilter, startDate, endDate }}
-                setSearchQuery={setSearchQuery}
-                setCategoryFilter={setCategoryFilter}
-                setStartDate={setStartDate}
-                setEndDate={setEndDate}
-                showDateFilter={showDateFilter}
-                setShowDateFilter={setShowDateFilter}
+              <LoadTransactions
+                onLoaded={(transactions) => {
+                  setTransactions(transactions);
+                }}
               />
 
-              <SaveButton transactions={transactions} />
+              {/* Filter Bar + Save Button Row */}
+              <div className="mt-4 flex items-start justify-between gap-4">
+                <FilterBar
+                  transactionsCount={transactions.length}
+                  filteredCount={filteredTransactions.length}
+                  categories={categories}
+                  filters={{ searchQuery, categoryFilter, startDate, endDate }}
+                  setSearchQuery={setSearchQuery}
+                  setCategoryFilter={setCategoryFilter}
+                  setStartDate={setStartDate}
+                  setEndDate={setEndDate}
+                  showDateFilter={showDateFilter}
+                  setShowDateFilter={setShowDateFilter}
+                />
+
+                {/* Only show Save button if there are transactions */}
+                {transactions.length > 0 && (
+                  <div className="flex-shrink-0">
+                    <SaveButton transactions={transactions} />
+                  </div>
+                )}
+              </div>
 
               <div className="mb-8 mt-8">
                 <TransactionsTable
