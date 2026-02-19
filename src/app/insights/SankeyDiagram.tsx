@@ -38,7 +38,13 @@ const majorCategoryMap: Record<string, string> = {
 // Categorize income by source
 const getIncomeSource = (description: string): string => {
   const desc = description.toLowerCase();
-  if (desc.includes("payroll") || desc.includes("salary") || desc.includes("calmatters") || desc.includes("mobile deposit") || desc.includes("interest payment")) {
+  if (
+    desc.includes("payroll") ||
+    desc.includes("salary") ||
+    desc.includes("calmatters") ||
+    desc.includes("mobile deposit") ||
+    desc.includes("interest payment")
+  ) {
     return "Salary";
   }
   if (desc.includes("venmo")) {
@@ -125,9 +131,7 @@ interface SankeyData {
   links: SankeyLink[];
 }
 
-export default function SankeyDiagram({
-  transactions,
-}: CategoryPieChartProps) {
+export default function SankeyDiagram({ transactions }: CategoryPieChartProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [range, setRange] = useState("ytd");
   const [showAllTime, setShowAllTime] = useState(false);
@@ -260,7 +264,8 @@ export default function SankeyDiagram({
     const width = svgRef.current.clientWidth || 1200;
     const height = Math.max(600, data.nodes.length * 40);
 
-    const svg = d3.select(svgRef.current)
+    const svg = d3
+      .select(svgRef.current)
       .attr("width", width)
       .attr("height", height)
       .attr("style", "background: #000");
@@ -278,8 +283,16 @@ export default function SankeyDiagram({
 
     // Color scale – bright colors for black background
     const linkColors = [
-      "#22d3ee", "#a78bfa", "#34d399", "#fbbf24", "#f87171",
-      "#60a5fa", "#c084fc", "#4ade80", "#fb923c", "#e879f9",
+      "#22d3ee",
+      "#a78bfa",
+      "#34d399",
+      "#fbbf24",
+      "#f87171",
+      "#60a5fa",
+      "#c084fc",
+      "#4ade80",
+      "#fb923c",
+      "#e879f9",
     ];
     const colorScale = d3.scaleOrdinal(linkColors);
 
@@ -303,7 +316,16 @@ export default function SankeyDiagram({
         d3.select(this).attr("fill-opacity", 0.85);
       });
 
-    // Draw nodes (same palette as links, visible on black)
+    // Color each node to match the links that touch it (so "ends of the lines" match line color)
+    const nodeColor = (d: SankeyNode) => {
+      const incoming = links.find(
+        (l: SankeyLink) => (l.target as SankeyNode).name === d.name
+      );
+      if (incoming) return colorScale((incoming.source as SankeyNode).name);
+      return colorScale(d.name);
+    };
+
+    // Draw nodes (same color as their connecting links)
     const node = svg
       .append("g")
       .selectAll("rect")
@@ -313,7 +335,7 @@ export default function SankeyDiagram({
       .attr("y", (d: SankeyNode) => d.y0 || 0)
       .attr("height", (d: SankeyNode) => (d.y1 || 0) - (d.y0 || 0))
       .attr("width", (d: SankeyNode) => (d.x1 || 0) - (d.x0 || 0))
-      .attr("fill", (d: SankeyNode) => colorScale(d.name))
+      .attr("fill", (d: SankeyNode) => nodeColor(d))
       .attr("opacity", 0.9)
       .on("mouseover", function (_event: MouseEvent, d: SankeyNode) {
         d3.select(this).attr("opacity", 1);
@@ -328,28 +350,54 @@ export default function SankeyDiagram({
         link.attr("fill-opacity", 0.85);
       });
 
-    // Add labels
+    // Add labels with background (only for items >= 0.5%)
+    const labelNodes = nodes.filter((d: SankeyNode) => {
+      const value = d.value || 0;
+      const percent = totalIncome > 0 ? (value / totalIncome) * 100 : 0;
+      return percent >= 0.5;
+    });
+
     const label = svg
       .append("g")
-      .selectAll("text")
-      .data(nodes)
-      .join("text")
-      .attr("x", (d: SankeyNode) => ((d.x0 || 0) < width / 2 ? (d.x1 || 0) + 6 : (d.x0 || 0) - 6))
-      .attr("y", (d: SankeyNode) => ((d.y0 || 0) + (d.y1 || 0)) / 2)
-      .attr("dy", "0.35em")
-      .attr("text-anchor", (d: SankeyNode) => ((d.x0 || 0) < width / 2 ? "start" : "end"))
-      .attr("fill", "white")
-      .attr("font-size", "12px")
-      .text((d: SankeyNode) => {
+      .selectAll("g")
+      .data(labelNodes)
+      .join("g")
+      .attr("transform", (d: SankeyNode) => {
+        const x = (d.x0 || 0) < width / 2 ? (d.x1 || 0) + 6 : (d.x0 || 0) - 6;
+        const y = ((d.y0 || 0) + (d.y1 || 0)) / 2;
+        return `translate(${x},${y})`;
+      })
+      .each(function (d: SankeyNode) {
+        const g = d3.select(this);
         const value = d.value || 0;
         const percent = totalIncome > 0 ? (value / totalIncome) * 100 : 0;
         const amt = value > 0 ? ` ${formatMoney(value)} ` : " ";
-        return `${d.name}${amt}(${percent.toFixed(1)}%)`;
-      })
-      .filter((d: SankeyNode) => {
-        const value = d.value || 0;
-        const percent = totalIncome > 0 ? (value / totalIncome) * 100 : 0;
-        return percent >= 0.5; // Only show labels for items >= 0.5%
+        const textStr = `${d.name}${amt}(${percent.toFixed(1)}%)`;
+        const anchor = (d.x0 || 0) < width / 2 ? "start" : "end";
+
+        const text = g
+          .append("text")
+          .attr("x", 0)
+          .attr("dy", "0.35em")
+          .attr("text-anchor", anchor)
+          .attr("fill", "#111")
+          .attr("font-size", "12px")
+          .text(textStr);
+
+        const textEl = text.node() as SVGTextElement;
+        if (textEl) {
+          const bbox = textEl.getBBox();
+          const pad = 5;
+          g.insert("rect", "text")
+            .attr("x", bbox.x - pad)
+            .attr("y", bbox.y - pad)
+            .attr("width", bbox.width + pad * 2)
+            .attr("height", bbox.height + pad * 2)
+            .attr("fill", "white")
+            .attr("fill-opacity", 0.7)
+            .attr("rx", 4)
+            .attr("ry", 4);
+        }
       });
   }, [data, totalIncome]);
 

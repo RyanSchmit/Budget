@@ -3,6 +3,7 @@
 import MoneyInput from "../MoneyInput";
 import { useMemo, useState } from "react";
 import { Transaction } from "../types";
+import { formatMoney } from "../format";
 
 interface TransactionsTableProps {
   transactions: Transaction[];
@@ -15,6 +16,9 @@ interface TransactionsTableProps {
   onToggleSelect: (id: string) => void;
   onToggleSelectAll: () => void;
   allVisibleSelected: boolean;
+  categories: string[];
+  setCategories: React.Dispatch<React.SetStateAction<string[]>>;
+  isDirty?: (id: string) => boolean;
 }
 
 interface SortConfig {
@@ -29,6 +33,9 @@ export default function TransactionsTable({
   onToggleSelect,
   onToggleSelectAll,
   allVisibleSelected,
+  categories,
+  setCategories,
+  isDirty,
 }: TransactionsTableProps) {
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: null,
@@ -79,6 +86,15 @@ export default function TransactionsTable({
         : String(aVal ?? "").localeCompare(String(bVal ?? ""));
     });
   }, [transactions, sortConfig]);
+
+  const totalAmount = useMemo(
+    () =>
+      sortedTransactions.reduce(
+        (sum, t) => sum + (typeof t.amount === "number" ? t.amount : 0),
+        0
+      ),
+    [sortedTransactions]
+  );
 
   return (
     <div className="mt-8">
@@ -152,7 +168,13 @@ export default function TransactionsTable({
 
           <tbody className="divide-y divide-gray-800 bg-black">
             {sortedTransactions.map((t) => (
-              <tr key={t.id} className="hover:bg-white/5">
+              <tr
+                key={t.id}
+                className={`hover:bg-white/5 ${
+                  isDirty?.(t.id) ? "bg-amber-950/30" : ""
+                }`}
+                title={isDirty?.(t.id) ? "Unsaved changes" : undefined}
+              >
                 {/* Select */}
                 <td className="px-4 py-2 text-center">
                   <input
@@ -188,16 +210,61 @@ export default function TransactionsTable({
                 </td>
 
                 {/* Category */}
-                <td className="px-4 py-2">
-                  <input
-                    type="text"
-                    value={t.category ?? ""}
-                    onChange={(e) =>
-                      onUpdateTransaction(t.id, "category", e.target.value)
-                    }
-                    className="w-full bg-transparent border border-gray-700 rounded px-2 py-1 text-sm"
-                    placeholder="Category"
-                  />
+                <td className="px-4 py-2" style={{ width: "16%" }}>
+                  {t.category === "__NEW__" ? (
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="New category"
+                      className="w-full bg-transparent border border-gray-700 rounded px-2 py-1 text-sm"
+                      onBlur={(e) => {
+                        const value = e.target.value.trim();
+
+                        if (!value) {
+                          onUpdateTransaction(t.id, "category", "N/A");
+                          return;
+                        }
+
+                        const normalized = value.toLowerCase();
+
+                        setCategories((prev) => {
+                          const exists = prev.some(
+                            (c) => c.toLowerCase() === normalized
+                          );
+
+                          if (exists) return prev;
+
+                          return [...prev, value].sort();
+                        });
+
+                        onUpdateTransaction(t.id, "category", value);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter")
+                          (e.target as HTMLInputElement).blur();
+                      }}
+                    />
+                  ) : (
+                    <select
+                      value={t.category}
+                      onChange={(e) => {
+                        if (e.target.value === "__NEW__") {
+                          onUpdateTransaction(t.id, "category", "__NEW__");
+                        } else {
+                          onUpdateTransaction(t.id, "category", e.target.value);
+                        }
+                      }}
+                      className="w-full bg-black border border-gray-700 rounded px-2 py-1 text-sm"
+                    >
+                      {categories.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+
+                      <option value="__NEW__">+ Add new…</option>
+                    </select>
+                  )}
                 </td>
 
                 {/* Amount */}
@@ -214,6 +281,20 @@ export default function TransactionsTable({
               </tr>
             ))}
           </tbody>
+
+          <tfoot>
+            <tr className="border-t border-gray-700 font-medium">
+              <td className="sticky bottom-0 z-10 bg-gray-900 px-4 py-3 w-10" />
+              <td className="sticky bottom-0 z-10 bg-gray-900 px-4 py-3" />
+              <td className="sticky bottom-0 z-10 bg-gray-900 px-4 py-3" />
+              <td className="sticky bottom-0 z-10 bg-gray-900 px-4 py-3">
+                Total
+              </td>
+              <td className="sticky bottom-0 z-10 bg-gray-900 px-4 py-3 text-right whitespace-nowrap">
+                {formatMoney(totalAmount)}
+              </td>
+            </tr>
+          </tfoot>
         </table>
 
         {transactions.length === 0 && (

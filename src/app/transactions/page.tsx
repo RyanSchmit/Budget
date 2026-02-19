@@ -14,6 +14,7 @@ import TransactionsTable from "./table";
 import KeywordsTab from "./keywords/KeywordsTab";
 import SaveButton from "./save";
 import LoadTransactions from "./loadTransactions";
+import { defaultCategories } from "./categories";
 
 export default function Transactions() {
   // Transaction States
@@ -48,10 +49,14 @@ export default function Transactions() {
     "transactions",
   );
 
+  // Categories state for updates
+  const [categoriesList, setCategoriesList] =
+    useState<string[]>(defaultCategories);
+
   const getTransactionKey = (t: Transaction) =>
     `${t.date}|${t.description}|${t.amount}`;
 
-  // de-dupe within pending (keeps first occurrence)
+  // get rid of duplicates within pending (keeps first occurrence)
   const uniquePendingTransactions = useMemo(() => {
     const seen = new Set<string>();
     return pendingTransactions.filter((t) => {
@@ -197,11 +202,15 @@ export default function Transactions() {
                       ),
                     );
                   }}
+                  categories={[
+                    ...new Set([...categories, ...categoriesList]),
+                  ].sort()}
+                  setCategories={setCategoriesList}
                 />
               </div>
             </>
           ) : (
-            // Render Keywords tab - adjust props if your KeywordsTab expects them
+            // Render Keywords tab
             <div className="mt-6">
               <KeywordsTab />
             </div>

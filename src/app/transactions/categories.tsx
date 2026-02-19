@@ -1,4 +1,4 @@
-const defaultCategories = [
+export const defaultCategories = [
   "Restaurants",
   "College",
   "Income",
