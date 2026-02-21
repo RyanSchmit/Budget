@@ -4,6 +4,7 @@ import Navbar from "../Navbar";
 import { useMemo, useState } from "react";
 import { Transaction } from "../types";
 import FileUI from "./csv";
+import LoadTransactionsClient from "./LoadTransactionsClient";
 import {
   FilterBar,
   filterTransactions,
@@ -13,8 +14,8 @@ import {
 import TransactionsTable from "./table";
 import KeywordsTab from "./keywords/KeywordsTab";
 import SaveButton from "./save";
-import LoadTransactions from "./loadTransactions";
 import { defaultCategories } from "./categories";
+import DeleteSelectedButton from "./delete";
 
 export default function Transactions() {
   // Transaction States
@@ -153,9 +154,10 @@ export default function Transactions() {
                 onAdd={handleAddTransactions}
               />
 
-              <LoadTransactions
-                onLoaded={(transactions) => {
-                  setTransactions(transactions);
+              <LoadTransactionsClient
+                onLoaded={(txs: Transaction[]) => {
+                  setTransactions(txs);
+                  setSelectedIds(new Set());
                 }}
               />
 
@@ -176,8 +178,15 @@ export default function Transactions() {
 
                 {/* Only show Save button if there are transactions */}
                 {transactions.length > 0 && (
-                  <div className="flex-shrink-0">
+                  <div className="flex-shrink-0 flex items-center gap-3">
                     <SaveButton transactions={transactions} />
+
+                    <DeleteSelectedButton
+                      transactions={transactions}
+                      selectedIds={selectedIds}
+                      setSelectedIds={setSelectedIds}
+                      setTransactions={setTransactions}
+                    />
                   </div>
                 )}
               </div>
