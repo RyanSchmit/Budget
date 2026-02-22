@@ -9,6 +9,10 @@ import { deriveNetWorthHistory } from "./Backwards";
 import { AccountItem, NetWorthHistoryItem } from "../types";
 import type { Transaction } from "../types";
 import { loadTransactions } from "../transactions/loadTransactions";
+import {
+  fetchLatestNetWorthSnapshot,
+  saveNetWorthSnapshot,
+} from "./netWorthDb";
 
 export default function NetWorth() {
   const [checkingValue, setCheckingValue] = useState<number | null>(null);
@@ -39,6 +43,44 @@ export default function NetWorth() {
 
     fetchTransactions();
     console.log(transactions);
+  }, []);
+
+  // Load most recent saved net worth snapshot (accounts + amounts)
+  useEffect(() => {
+    const loadSnapshot = async () => {
+      try {
+        const snapshot = await fetchLatestNetWorthSnapshot();
+        if (!snapshot) return;
+
+        const checking = snapshot.accounts.find((a) => a.key === "checking");
+        const credit = snapshot.accounts.find((a) => a.key === "credit_card");
+
+        setCheckingValue(checking ? checking.amount : null);
+        setCreditCardValue(credit ? credit.amount : null);
+
+        const assetAccounts: AccountItem[] = [];
+        const liabilityAccounts: AccountItem[] = [];
+
+        snapshot.accounts
+          .filter((a) => !a.key)
+          .forEach((a, idx) => {
+            const item: AccountItem = {
+              id: Date.now() + idx,
+              name: a.name,
+              amount: a.amount,
+            };
+            if (a.type === "asset") assetAccounts.push(item);
+            else liabilityAccounts.push(item);
+          });
+
+        setAccounts(assetAccounts);
+        setLiabilities(liabilityAccounts);
+      } catch (e) {
+        console.error("Failed to load net worth snapshot:", e);
+      }
+    };
+
+    loadSnapshot();
   }, []);
 
   /* -------------------- Totals -------------------- */
@@ -102,21 +144,62 @@ export default function NetWorth() {
   /* -------------------- Actions -------------------- */
 
   // ✅ Save ONLY when button is clicked
-  const saveNetWorth = () => {
+  const saveNetWorth = async () => {
     const date = new Date().toISOString().split("T")[0];
 
-    setSavedHistory((prev) => {
-      const existing = prev.find((h) => h.date === date);
+    try {
+      const lines = [
+        ...(checkingValue != null
+          ? [
+              {
+                key: "checking" as const,
+                name: "Checking account",
+                amount: checkingValue,
+                type: "asset" as const,
+                sort_order: -100,
+              },
+            ]
+          : []),
+        ...accounts
+          .filter((a) => a.name.trim() && a.amount != null)
+          .map((a, idx) => ({
+            name: a.name.trim(),
+            amount: a.amount as number,
+            type: "asset" as const,
+            sort_order: idx,
+          })),
+        ...(creditCardValue != null
+          ? [
+              {
+                key: "credit_card" as const,
+                name: "Credit card balance",
+                amount: creditCardValue,
+                type: "liability" as const,
+                sort_order: 10_000,
+              },
+            ]
+          : []),
+        ...liabilities
+          .filter((l) => l.name.trim() && l.amount != null)
+          .map((l, idx) => ({
+            name: l.name.trim(),
+            amount: l.amount as number,
+            type: "liability" as const,
+            sort_order: 10_001 + idx,
+          })),
+      ];
 
-      if (existing && existing.value === netWorth) {
-        return prev;
-      }
+      await saveNetWorthSnapshot({ date, accounts: lines });
 
-      // Replace if same date exists
-      const filtered = prev.filter((h) => h.date !== date);
-
-      return [...filtered, { date, value: netWorth }];
-    });
+      setSavedHistory((prev) => {
+        const existing = prev.find((h) => h.date === date);
+        if (existing && existing.value === netWorth) return prev;
+        const filtered = prev.filter((h) => h.date !== date);
+        return [...filtered, { date, value: netWorth }];
+      });
+    } catch (e) {
+      console.error("Failed to save net worth snapshot:", e);
+    }
   };
 
   // 🔁 Work backwards from transactions
