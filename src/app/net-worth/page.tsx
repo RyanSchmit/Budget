@@ -1,14 +1,14 @@
 "use client";
 
 import Navbar from "../Navbar";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import FinancialSection from "./Balances";
 import { formatMoney } from "../format";
 import NetWorthChart from "./NetWorthChart";
 import { deriveNetWorthHistory } from "./Backwards";
-import { fetchTransactions } from "../transactions/actions";
 import { AccountItem, NetWorthHistoryItem } from "../types";
 import type { Transaction } from "../types";
+import { loadTransactions } from "../transactions/loadTransactions";
 
 export default function NetWorth() {
   const [checkingValue, setCheckingValue] = useState<number | null>(null);
@@ -19,7 +19,7 @@ export default function NetWorth() {
 
   // Transactions from database for "Work Backwards"
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [transactionsLoading, setTransactionsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
 
   // 🔑 Single source of truth for chart data
   const [history, setHistory] = useState<NetWorthHistoryItem[]>([]);
@@ -28,20 +28,17 @@ export default function NetWorth() {
     [],
   );
 
-  // Load transactions from database
+  // Getting transactions from database
   useEffect(() => {
-    async function loadTransactions() {
-      try {
-        setTransactionsLoading(true);
-        const data = await fetchTransactions();
-        setTransactions(data);
-      } catch (error) {
-        console.error("Failed to load transactions:", error);
-      } finally {
-        setTransactionsLoading(false);
-      }
-    }
-    loadTransactions();
+    const fetchTransactions = async () => {
+      setLoading(true);
+      const data = await loadTransactions();
+      setTransactions(data);
+      setLoading(false);
+    };
+
+    fetchTransactions();
+    console.log(transactions);
   }, []);
 
   /* -------------------- Totals -------------------- */
@@ -215,14 +212,14 @@ export default function NetWorth() {
             <button
               type="button"
               onClick={workBackwards}
-              disabled={transactionsLoading}
+              disabled={loading}
               className={`px-4 py-2 bg-indigo-600 text-white rounded-md text-sm ${
-                transactionsLoading
+                loading
                   ? "opacity-50 cursor-not-allowed"
                   : "hover:bg-indigo-500"
               }`}
             >
-              {transactionsLoading ? "Loading…" : "Work Backwards"}
+              {loading ? "Loading…" : "Work Backwards"}
             </button>
           </div>
         </div>

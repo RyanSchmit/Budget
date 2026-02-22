@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { Transaction } from "../types";
 
 /** -----------------------
@@ -11,18 +10,25 @@ export type TransactionFilters = {
   categoryFilter: string; // "ALL" or category name
   startDate: string; // "" or "YYYY-MM-DD"
   endDate: string; // "" or "YYYY-MM-DD"
+
+  month: number | "ALL";
+  year: number | "ALL";
 };
 
 type FilterBarProps = {
-  transactionsCount: number; // total transactions (used to decide whether to show)
-  filteredCount: number; // shown in "X results"
+  transactionsCount: number;
+  filteredCount: number;
   categories: string[];
+  availableYears: number[];
 
   filters: TransactionFilters;
+
   setSearchQuery: (v: string) => void;
   setCategoryFilter: (v: string) => void;
   setStartDate: (v: string) => void;
   setEndDate: (v: string) => void;
+  setMonth: (v: number | "ALL") => void;
+  setYear: (v: number | "ALL") => void;
 
   showDateFilter: boolean;
   setShowDateFilter: (v: boolean) => void;
@@ -35,19 +41,42 @@ export function filterTransactions(
   transactions: Transaction[],
   filters: TransactionFilters,
 ): Transaction[] {
-  const { searchQuery, categoryFilter, startDate, endDate } = filters;
+  const {
+    searchQuery,
+    categoryFilter,
+    startDate,
+    endDate,
+    month,
+    year,
+  } = filters;
+
   const q = searchQuery.trim().toLowerCase();
 
   return transactions.filter((t) => {
     const matchesSearch = t.description.toLowerCase().includes(q);
+
     const matchesCategory =
       categoryFilter === "ALL" || t.category === categoryFilter;
 
     const txDate = new Date(t.date);
+
     const afterStart = startDate ? txDate >= new Date(startDate) : true;
     const beforeEnd = endDate ? txDate <= new Date(endDate) : true;
 
-    return matchesSearch && matchesCategory && afterStart && beforeEnd;
+    const matchesMonth =
+      month === "ALL" || txDate.getMonth() + 1 === month;
+
+    const matchesYear =
+      year === "ALL" || txDate.getFullYear() === year;
+
+    return (
+      matchesSearch &&
+      matchesCategory &&
+      afterStart &&
+      beforeEnd &&
+      matchesMonth &&
+      matchesYear
+    );
   });
 }
 
@@ -81,20 +110,41 @@ export function FilterBar({
   transactionsCount,
   filteredCount,
   categories,
+  availableYears,
   filters,
   setSearchQuery,
   setCategoryFilter,
   setStartDate,
   setEndDate,
+  setMonth,
+  setYear,
   showDateFilter,
   setShowDateFilter,
 }: FilterBarProps) {
   if (transactionsCount === 0) return null;
 
-  const { searchQuery, categoryFilter, startDate, endDate } = filters;
+  const {
+    searchQuery,
+    categoryFilter,
+    startDate,
+    endDate,
+    month,
+    year,
+  } = filters;
+
   const hasFilters = Boolean(
-    searchQuery || categoryFilter !== "ALL" || startDate || endDate,
+    searchQuery ||
+      categoryFilter !== "ALL" ||
+      startDate ||
+      endDate ||
+      month !== "ALL" ||
+      year !== "ALL",
   );
+
+  const monthNames = [
+    "January","February","March","April","May","June",
+    "July","August","September","October","November","December",
+  ];
 
   return (
     <div className="flex items-center gap-4 mt-4 flex-wrap">
@@ -107,7 +157,7 @@ export function FilterBar({
         className="w-72 rounded-md border border-gray-700 bg-black px-3 py-2 text-sm text-white"
       />
 
-      {/* Category Filter */}
+      {/* Category */}
       <select
         value={categoryFilter}
         onChange={(e) => setCategoryFilter(e.target.value)}
@@ -121,7 +171,39 @@ export function FilterBar({
         ))}
       </select>
 
-      {/* Date Filter Toggle */}
+      {/* Year */}
+      <select
+        value={year}
+        onChange={(e) =>
+          setYear(e.target.value === "ALL" ? "ALL" : Number(e.target.value))
+        }
+        className="rounded-md border border-gray-700 bg-black px-3 py-2 text-sm"
+      >
+        <option value="ALL">All Years</option>
+        {availableYears.map((y) => (
+          <option key={y} value={y}>
+            {y}
+          </option>
+        ))}
+      </select>
+
+      {/* Month */}
+      <select
+        value={month}
+        onChange={(e) =>
+          setMonth(e.target.value === "ALL" ? "ALL" : Number(e.target.value))
+        }
+        className="rounded-md border border-gray-700 bg-black px-3 py-2 text-sm"
+      >
+        <option value="ALL">All Months</option>
+        {monthNames.map((m, i) => (
+          <option key={i} value={i + 1}>
+            {m}
+          </option>
+        ))}
+      </select>
+
+      {/* Date Toggle */}
       <button
         type="button"
         onClick={() => setShowDateFilter(!showDateFilter)}
@@ -157,7 +239,7 @@ export function FilterBar({
 
       <p className="text-sm text-gray-400">{filteredCount} results</p>
 
-      {/* Clear Filters */}
+      {/* Clear */}
       {hasFilters && (
         <button
           type="button"
@@ -166,6 +248,8 @@ export function FilterBar({
             setCategoryFilter("ALL");
             setStartDate("");
             setEndDate("");
+            setMonth("ALL");
+            setYear("ALL");
           }}
           className="text-sm text-gray-400 hover:text-white"
         >

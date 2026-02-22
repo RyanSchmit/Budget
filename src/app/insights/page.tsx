@@ -1,42 +1,105 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Navbar from "../Navbar";
 import CategoryPieChart from "../insights/PieChart";
 import SankeyDiagram from "../insights/SankeyDiagram";
 import CategoryStatsTable from "../insights/CategoryStatsTable";
-import { fetchTransactions } from "../transactions/actions";
+import { loadTransactions } from "../transactions/loadTransactions";
 import { Transaction } from "../types";
 
 export default function Home() {
   const [activeView, setActiveView] = useState<
     "sankey" | "pie" | "category-stats"
   >("pie");
+
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Load transactions from database on mount
+  const currentDate = new Date();
+  const [selectedYear, setSelectedYear] = useState(
+    currentDate.getFullYear()
+  );
+  const [selectedMonth, setSelectedMonth] = useState(
+    currentDate.getMonth() + 1
+  );
+
+  // Load transactions
   useEffect(() => {
-    async function loadTransactions() {
-      try {
-        setLoading(true);
-        const data = await fetchTransactions();
-        setTransactions(data);
-      } catch (error) {
-        console.error("Failed to load transactions:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadTransactions();
+    const fetchTransactions = async () => {
+      setLoading(true);
+      const data = await loadTransactions();
+      setTransactions(data);
+      setLoading(false);
+    };
+
+    fetchTransactions();
   }, []);
+
+  // Extract unique years from transactions
+  const availableYears = useMemo(() => {
+    const years = new Set(
+      transactions.map((t) => new Date(t.date).getFullYear())
+    );
+    return Array.from(years).sort((a, b) => b - a);
+  }, [transactions]);
+
+  // Filter transactions by selected month/year
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter((t) => {
+      const date = new Date(t.date);
+      return (
+        date.getFullYear() === selectedYear &&
+        date.getMonth() + 1 === selectedMonth
+      );
+    });
+  }, [transactions, selectedYear, selectedMonth]);
+
+  const monthNames = [
+    "January","February","March","April","May","June",
+    "July","August","September","October","November","December",
+  ];
 
   return (
     <div className="min-h-screen bg-black font-sans text-white flex flex-col">
       <Navbar />
-
       <main className="flex-1 flex w-full flex-col items-center gap-8 bg-black pt-24 pb-8">
         <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+
+          {/* Month + Year Filters */}
+          <div className="flex justify-center gap-4 mb-6">
+
+            {/* Year Dropdown */}
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              className="bg-white/10 text-white px-4 py-2 rounded-lg"
+            >
+              {availableYears.map((year) => (
+                <option key={year} value={year} className="text-black">
+                  {year}
+                </option>
+              ))}
+            </select>
+
+            {/* Month Dropdown */}
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(Number(e.target.value))}
+              className="bg-white/10 text-white px-4 py-2 rounded-lg"
+            >
+              {monthNames.map((month, index) => (
+                <option
+                  key={index}
+                  value={index + 1}
+                  className="text-black"
+                >
+                  {month}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* View Toggle Buttons */}
           <div className="flex justify-center gap-4 mb-6">
             <button
@@ -49,6 +112,7 @@ export default function Home() {
             >
               Sankey Diagram
             </button>
+
             <button
               onClick={() => setActiveView("pie")}
               className={`px-6 py-2 rounded-lg text-sm font-medium transition ${
@@ -59,6 +123,7 @@ export default function Home() {
             >
               Pie Chart
             </button>
+
             <button
               onClick={() => setActiveView("category-stats")}
               className={`px-6 py-2 rounded-lg text-sm font-medium transition ${
@@ -76,16 +141,18 @@ export default function Home() {
             <div className="flex items-center justify-center py-12">
               <p className="text-gray-400">Loading transactions...</p>
             </div>
-          ) : transactions.length === 0 ? (
+          ) : filteredTransactions.length === 0 ? (
             <div className="flex items-center justify-center py-12">
-              <p className="text-gray-400">No transactions found.</p>
+              <p className="text-gray-400">
+                No transactions found for selected month.
+              </p>
             </div>
           ) : activeView === "sankey" ? (
-            <SankeyDiagram transactions={transactions} />
+            <SankeyDiagram transactions={filteredTransactions} />
           ) : activeView === "category-stats" ? (
-            <CategoryStatsTable transactions={transactions} />
+            <CategoryStatsTable transactions={filteredTransactions} />
           ) : (
-            <CategoryPieChart transactions={transactions} />
+            <CategoryPieChart transactions={filteredTransactions} />
           )}
         </div>
       </main>

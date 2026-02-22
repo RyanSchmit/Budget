@@ -30,6 +30,33 @@ export default function Transactions() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [showDateFilter, setShowDateFilter] = useState(false);
+  const [month, setMonth] = useState<number | "ALL">("ALL");
+  const [year, setYear] = useState<number | "ALL">("ALL");
+  const availableYears = useMemo(() => {
+    const years = new Set<number>();
+    for (const t of transactions) {
+      years.add(new Date(t.date).getFullYear());
+    }
+    return Array.from(years).sort((a, b) => b - a);
+  }, [transactions]);
+  const filteredTransactions = useMemo(() => {
+    return filterTransactions(transactions, {
+      searchQuery,
+      categoryFilter,
+      startDate,
+      endDate,
+      month,
+      year,
+    });
+  }, [
+    transactions,
+    searchQuery,
+    categoryFilter,
+    startDate,
+    endDate,
+    month,
+    year,
+  ]);
 
   // Categories for the filter dropdown
   const categories = useMemo(() => {
@@ -83,16 +110,6 @@ export default function Transactions() {
     setTransactions((prev) => [...prev, ...toAdd]);
     setPendingTransactions([]);
   };
-
-  // Filtering
-  const filteredTransactions = useMemo(() => {
-    return filterTransactions(transactions, {
-      searchQuery,
-      categoryFilter,
-      startDate,
-      endDate,
-    });
-  }, [transactions, searchQuery, categoryFilter, startDate, endDate]);
 
   // Select-all on visible rows
   const allVisibleSelected = useMemo(() => {
@@ -167,11 +184,21 @@ export default function Transactions() {
                   transactionsCount={transactions.length}
                   filteredCount={filteredTransactions.length}
                   categories={categories}
-                  filters={{ searchQuery, categoryFilter, startDate, endDate }}
+                  availableYears={availableYears}
+                  filters={{
+                    searchQuery,
+                    categoryFilter,
+                    startDate,
+                    endDate,
+                    month,
+                    year,
+                  }}
                   setSearchQuery={setSearchQuery}
                   setCategoryFilter={setCategoryFilter}
                   setStartDate={setStartDate}
                   setEndDate={setEndDate}
+                  setMonth={setMonth}
+                  setYear={setYear}
                   showDateFilter={showDateFilter}
                   setShowDateFilter={setShowDateFilter}
                 />
