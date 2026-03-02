@@ -26,6 +26,14 @@ export default function Footer() {
             <ul className="space-y-2">
               <li>
                 <Link
+                  href="/calculators/compound-interest"
+                  className="text-sm text-zinc-600 hover:text-black dark:text-zinc-400 dark:hover:text-white"
+                >
+                  Compound Interest Calculator
+                </Link>
+              </li>
+              <li>
+                <Link
                   href="/calculators/rent-vs-buy"
                   className="text-sm text-zinc-600 hover:text-black dark:text-zinc-400 dark:hover:text-white"
                 >
@@ -38,14 +46,6 @@ export default function Footer() {
                   className="text-sm text-zinc-600 hover:text-black dark:text-zinc-400 dark:hover:text-white"
                 >
                   Bonds vs. Stocks Simulator
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/calculators/compound-interest"
-                  className="text-sm text-zinc-600 hover:text-black dark:text-zinc-400 dark:hover:text-white"
-                >
-                  Compound Interest Calculator
                 </Link>
               </li>
               <li>

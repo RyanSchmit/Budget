@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import type { ReactNode } from "react";
 import {
   PieChart,
   Pie,
@@ -13,6 +13,7 @@ import { Transaction } from "../types";
 
 interface CategoryPieChartProps {
   transactions: Transaction[];
+  filters?: ReactNode;
 }
 
 const COLORS = [
@@ -31,35 +32,6 @@ const renderPercentLabel = ({ percent }: { percent: number }) => {
   return `${Math.round(percent * 100)}%`;
 };
 
-const parseDate = (dateStr: string): Date => {
-  const [month, day, year] = dateStr.split("-");
-  return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-};
-
-const isInRange = (dateStr: string, range: string): boolean => {
-  const now = new Date();
-  const txDate = parseDate(dateStr);
-
-  if (range === "month") {
-    return (
-      txDate.getMonth() === now.getMonth() &&
-      txDate.getFullYear() === now.getFullYear()
-    );
-  }
-
-  if (range === "3months") {
-    const past3Months = new Date(
-      now.getFullYear(),
-      now.getMonth() - 3,
-      now.getDate()
-    );
-    return txDate >= past3Months;
-  }
-
-  const startOfYear = new Date(now.getFullYear(), 0, 1);
-  return txDate >= startOfYear;
-};
-
 interface ChartDataItem {
   name: string;
   value: number;
@@ -68,43 +40,28 @@ interface ChartDataItem {
 
 export default function CategoryPieChart({
   transactions,
+  filters,
 }: CategoryPieChartProps) {
-  const [range, setRange] = useState("ytd");
-  const [showAllTime, setShowAllTime] = useState(false);
-
   // Filter out Income
   const expensesOnly = transactions.filter((t) => t.category !== "Income");
 
   // Filter Income separately
   const incomeOnly = transactions.filter((t) => t.category === "Income");
 
-  // Apply range filter only if not showing all time
-  const filteredExpenses = expensesOnly.filter((t) =>
-    showAllTime ? true : isInRange(t.date, range)
-  );
-
-  const filteredIncome = incomeOnly.filter((t) =>
-    showAllTime ? true : isInRange(t.date, range)
-  );
-
   // Total spent / income
-  const totalSpent = filteredExpenses.reduce(
-    (sum, t) => sum + Math.abs(t.amount),
-    0
-  );
-  const totalIncome = filteredIncome.reduce((sum, t) => sum + t.amount, 0);
+  const totalSpent = expensesOnly.reduce((sum, t) => sum + t.amount, 0);
+  const totalIncome = incomeOnly.reduce((sum, t) => sum + t.amount, 0);
 
   // Group expenses by category for pie chart
   const data = Object.values(
-    filteredExpenses.reduce(
+    expensesOnly.reduce(
       (acc, t) => {
-        if (!acc[t.category])
-          acc[t.category] = { name: t.category, value: 0 };
-        acc[t.category].value += Math.abs(t.amount);
+        if (!acc[t.category]) acc[t.category] = { name: t.category, value: 0 };
+        acc[t.category].value += t.amount;
         return acc;
       },
-      {} as Record<string, ChartDataItem>
-    )
+      {} as Record<string, ChartDataItem>,
+    ),
   ) as ChartDataItem[];
 
   return (
@@ -113,16 +70,6 @@ export default function CategoryPieChart({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
         <div>
           <h2 className="text-lg font-semibold">Expenses by Category</h2>
-          <p className="text-white/70 mt-1">
-            Total spent:{" "}
-            <span className="font-bold">
-              $
-              {totalSpent.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </span>
-          </p>
           <p className="text-white/70 mt-1">
             Total Income:{" "}
             <span className="font-bold">
@@ -133,41 +80,18 @@ export default function CategoryPieChart({
               })}
             </span>
           </p>
+          <p className="text-white/70 mt-1">
+            Total spent:{" "}
+            <span className="font-bold">
+              $
+              {totalSpent.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+          </p>
         </div>
-
-        {/* Controls */}
-        <div className="flex gap-2 flex-wrap">
-          {!showAllTime &&
-            [
-              { label: "YTD", value: "ytd" },
-              { label: "3M", value: "3months" },
-              { label: "Month", value: "month" },
-            ].map((btn) => (
-              <button
-                key={btn.value}
-                onClick={() => setRange(btn.value)}
-                className={`px-3 py-1 rounded-lg text-sm transition ${
-                  range === btn.value
-                    ? "bg-red-600 text-white"
-                    : "bg-white/10 hover:bg-white/20"
-                }`}
-              >
-                {btn.label}
-              </button>
-            ))}
-
-          {/* All Time Total Button */}
-          <button
-            onClick={() => setShowAllTime((prev) => !prev)}
-            className={`px-3 py-1 rounded-lg text-sm transition ${
-              showAllTime
-                ? "bg-green-600 text-white"
-                : "bg-white/10 hover:bg-white/20"
-            }`}
-          >
-            {showAllTime ? "Show Range Total" : "Show All Time Total"}
-          </button>
-        </div>
+        {filters ? <div className="flex gap-3 flex-wrap">{filters}</div> : null}
       </div>
 
       {/* Chart */}

@@ -1,29 +1,20 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { defaultKeyWords } from "./keywords";
-import { Rule } from "../../types";
-
-function allCategories(rules: Rule[]): string[] {
-  const fromRules = new Set(rules.map((r) => r.category));
-  return Array.from(fromRules).sort();
-}
+import { useState } from "react";
+import {
+  getKeywordRuleCategories,
+  resetKeywordRulesToDefaults,
+  setKeywordRules,
+  useKeywordRules,
+} from "./keywordRulesStore";
 
 export default function KeywordsTab() {
-  const [rules, setRules] = useState<Rule[]>([]);
+  const rules = useKeywordRules();
   const [newKeyword, setNewKeyword] = useState("");
   const [newCategory, setNewCategory] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
 
-  const load = useCallback(() => {
-    setRules(defaultKeyWords);
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const categories = allCategories(rules);
+  const categories = getKeywordRuleCategories(rules);
   const filteredRules =
     categoryFilter === "ALL"
       ? rules
@@ -45,7 +36,7 @@ export default function KeywordsTab() {
       next.push({ category: cat, keywords: [kw] });
       next.sort((a, b) => a.category.localeCompare(b.category));
     }
-    setRules(next);
+    setKeywordRules(next);
     setNewKeyword("");
   };
 
@@ -59,8 +50,8 @@ export default function KeywordsTab() {
         if (kws.length === 0) return null;
         return { ...r, keywords: kws };
       })
-      .filter((r): r is Rule => r !== null);
-    setRules(next);
+      .filter((r): r is NonNullable<typeof r> => r !== null);
+    setKeywordRules(next);
   };
 
   const handleResetToDefaults = () => {
@@ -68,8 +59,7 @@ export default function KeywordsTab() {
       typeof window !== "undefined" &&
       window.confirm("Reset all keywords to defaults? This cannot be undone.")
     ) {
-      window.localStorage.removeItem("keyword_rules");
-      load();
+      resetKeywordRulesToDefaults();
     }
   };
 

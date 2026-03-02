@@ -1,7 +1,7 @@
 "use client";
 
 import Navbar from "../Navbar";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Transaction } from "../types";
 import FileUI from "./csv";
 import LoadTransactionsClient from "./LoadTransactionsClient";
@@ -13,11 +13,14 @@ import {
 } from "./filter";
 import TransactionsTable from "./table";
 import KeywordsTab from "./keywords/KeywordsTab";
+import SelectionKeywordToolbar from "./keywords/SelectionKeywordToolbar";
 import SaveButton from "./save";
 import { defaultCategories } from "./categories";
 import DeleteSelectedButton from "./delete";
 
 export default function Transactions() {
+  const selectionContainerRef = useRef<HTMLDivElement>(null);
+
   // Transaction States
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [pendingTransactions, setPendingTransactions] = useState<Transaction[]>(
@@ -165,85 +168,89 @@ export default function Transactions() {
 
           {activeTab === "transactions" ? (
             <>
-              <FileUI
-                pendingCount={uniquePendingTransactions.length}
-                onParsed={setPendingTransactions}
-                onAdd={handleAddTransactions}
-              />
-
-              <LoadTransactionsClient
-                onLoaded={(txs: Transaction[]) => {
-                  setTransactions(txs);
-                  setSelectedIds(new Set());
-                }}
-              />
-
-              {/* Filter Bar + Save Button Row */}
-              <div className="mt-4 flex items-start justify-between gap-4">
-                <FilterBar
-                  transactionsCount={transactions.length}
-                  filteredCount={filteredTransactions.length}
-                  categories={categories}
-                  availableYears={availableYears}
-                  filters={{
-                    searchQuery,
-                    categoryFilter,
-                    startDate,
-                    endDate,
-                    month,
-                    year,
-                  }}
-                  setSearchQuery={setSearchQuery}
-                  setCategoryFilter={setCategoryFilter}
-                  setStartDate={setStartDate}
-                  setEndDate={setEndDate}
-                  setMonth={setMonth}
-                  setYear={setYear}
-                  showDateFilter={showDateFilter}
-                  setShowDateFilter={setShowDateFilter}
+              <div ref={selectionContainerRef}>
+                <FileUI
+                  pendingCount={uniquePendingTransactions.length}
+                  onParsed={setPendingTransactions}
+                  onAdd={handleAddTransactions}
                 />
 
-                {/* Only show Save button if there are transactions */}
-                {transactions.length > 0 && (
-                  <div className="flex-shrink-0 flex items-center gap-3">
-                    <SaveButton transactions={transactions} />
-
-                    <DeleteSelectedButton
-                      transactions={transactions}
-                      selectedIds={selectedIds}
-                      setSelectedIds={setSelectedIds}
-                      setTransactions={setTransactions}
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="mb-8 mt-8">
-                <TransactionsTable
-                  transactions={filteredTransactions}
-                  selectedIds={selectedIds}
-                  onToggleSelect={(id) => {
-                    setSelectedIds((prev) => {
-                      const next = new Set(prev);
-                      next.has(id) ? next.delete(id) : next.add(id);
-                      return next;
-                    });
+                <LoadTransactionsClient
+                  onLoaded={(txs: Transaction[]) => {
+                    setTransactions(txs);
+                    setSelectedIds(new Set());
                   }}
-                  onToggleSelectAll={handleSelectAll}
-                  allVisibleSelected={allVisibleSelected}
-                  onUpdateTransaction={(id, field, value) => {
-                    setTransactions((prev) =>
-                      prev.map((t) =>
-                        t.id === id ? { ...t, [field]: value } : t,
-                      ),
-                    );
-                  }}
-                  categories={[
-                    ...new Set([...categories, ...categoriesList]),
-                  ].sort()}
-                  setCategories={setCategoriesList}
                 />
+
+                {/* Filter Bar + Save Button Row */}
+                <div className="mt-4 flex items-start justify-between gap-4">
+                  <FilterBar
+                    transactionsCount={transactions.length}
+                    filteredCount={filteredTransactions.length}
+                    categories={categories}
+                    availableYears={availableYears}
+                    filters={{
+                      searchQuery,
+                      categoryFilter,
+                      startDate,
+                      endDate,
+                      month,
+                      year,
+                    }}
+                    setSearchQuery={setSearchQuery}
+                    setCategoryFilter={setCategoryFilter}
+                    setStartDate={setStartDate}
+                    setEndDate={setEndDate}
+                    setMonth={setMonth}
+                    setYear={setYear}
+                    showDateFilter={showDateFilter}
+                    setShowDateFilter={setShowDateFilter}
+                  />
+
+                  {/* Only show Save button if there are transactions */}
+                  {transactions.length > 0 && (
+                    <div className="flex-shrink-0 flex items-center gap-3">
+                      <SaveButton transactions={transactions} />
+
+                      <DeleteSelectedButton
+                        transactions={transactions}
+                        selectedIds={selectedIds}
+                        setSelectedIds={setSelectedIds}
+                        setTransactions={setTransactions}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="mb-8 mt-8">
+                  <TransactionsTable
+                    transactions={filteredTransactions}
+                    selectedIds={selectedIds}
+                    onToggleSelect={(id) => {
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        next.has(id) ? next.delete(id) : next.add(id);
+                        return next;
+                      });
+                    }}
+                    onToggleSelectAll={handleSelectAll}
+                    allVisibleSelected={allVisibleSelected}
+                    onUpdateTransaction={(id, field, value) => {
+                      setTransactions((prev) =>
+                        prev.map((t) =>
+                          t.id === id ? { ...t, [field]: value } : t,
+                        ),
+                      );
+                    }}
+                    categories={[
+                      ...new Set([...categories, ...categoriesList]),
+                    ].sort()}
+                    setCategories={setCategoriesList}
+                  />
+                </div>
               </div>
+
+              <SelectionKeywordToolbar containerRef={selectionContainerRef} />
             </>
           ) : (
             // Render Keywords tab

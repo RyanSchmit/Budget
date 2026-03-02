@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import type { ReactNode } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import * as d3 from "d3";
 import { sankey } from "d3-sankey";
 import { Transaction } from "../types";
@@ -8,6 +9,7 @@ import { formatMoney } from "../format";
 
 interface CategoryPieChartProps {
   transactions: Transaction[];
+  filters?: ReactNode;
 }
 
 // Map expense categories to major categories
@@ -65,35 +67,6 @@ const getIncomeSource = (description: string): string => {
   return "Other Income";
 };
 
-const parseDate = (dateStr: string): Date => {
-  const [month, day, year] = dateStr.split("-");
-  return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-};
-
-const isInRange = (dateStr: string, range: string): boolean => {
-  const now = new Date();
-  const txDate = parseDate(dateStr);
-
-  if (range === "month") {
-    return (
-      txDate.getMonth() === now.getMonth() &&
-      txDate.getFullYear() === now.getFullYear()
-    );
-  }
-
-  if (range === "3months") {
-    const past3Months = new Date(
-      now.getFullYear(),
-      now.getMonth() - 3,
-      now.getDate()
-    );
-    return txDate >= past3Months;
-  }
-
-  const startOfYear = new Date(now.getFullYear(), 0, 1);
-  return txDate >= startOfYear;
-};
-
 interface SankeyNode {
   name: string;
   x0?: number;
@@ -131,22 +104,15 @@ interface SankeyData {
   links: SankeyLink[];
 }
 
-export default function SankeyDiagram({ transactions }: CategoryPieChartProps) {
+export default function SankeyDiagram({
+  transactions,
+  filters,
+}: CategoryPieChartProps) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [range, setRange] = useState("ytd");
-  const [showAllTime, setShowAllTime] = useState(false);
 
   // Filter transactions
-  const expensesOnly = transactions.filter((t) => t.category !== "Income");
-  const incomeOnly = transactions.filter((t) => t.category === "Income");
-
-  const filteredExpenses = expensesOnly.filter((t) =>
-    showAllTime ? true : isInRange(t.date, range)
-  );
-
-  const filteredIncome = incomeOnly.filter((t) =>
-    showAllTime ? true : isInRange(t.date, range)
-  );
+  const filteredExpenses = transactions.filter((t) => t.category !== "Income");
+  const filteredIncome = transactions.filter((t) => t.category === "Income");
 
   // Process income by source
   const incomeBySource = useMemo(() => {
@@ -161,6 +127,10 @@ export default function SankeyDiagram({ transactions }: CategoryPieChartProps) {
   const totalIncome = useMemo(() => {
     return Object.values(incomeBySource).reduce((sum, val) => sum + val, 0);
   }, [incomeBySource]);
+
+  const totalSpent = useMemo(() => {
+    return filteredExpenses.reduce((sum, t) => sum + t.amount, 0);
+  }, [filteredExpenses]);
 
   // Process expenses by major category
   const expensesByMajorCategory = useMemo(() => {
@@ -417,41 +387,18 @@ export default function SankeyDiagram({ transactions }: CategoryPieChartProps) {
               })}
             </span>
           </p>
+          <p className="text-white/70 mt-1">
+            Total spent:{" "}
+            <span className="font-bold">
+              $
+              {totalSpent.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+          </p>
         </div>
-
-        {/* Controls */}
-        <div className="flex gap-2 flex-wrap">
-          {!showAllTime &&
-            [
-              { label: "YTD", value: "ytd" },
-              { label: "3M", value: "3months" },
-              { label: "Month", value: "month" },
-            ].map((btn) => (
-              <button
-                key={btn.value}
-                onClick={() => setRange(btn.value)}
-                className={`px-3 py-1 rounded-lg text-sm transition ${
-                  range === btn.value
-                    ? "bg-red-600 text-white"
-                    : "bg-white/10 hover:bg-white/20"
-                }`}
-              >
-                {btn.label}
-              </button>
-            ))}
-
-          {/* All Time Total Button */}
-          <button
-            onClick={() => setShowAllTime((prev) => !prev)}
-            className={`px-3 py-1 rounded-lg text-sm transition ${
-              showAllTime
-                ? "bg-green-600 text-white"
-                : "bg-white/10 hover:bg-white/20"
-            }`}
-          >
-            {showAllTime ? "Show Range Total" : "Show All Time Total"}
-          </button>
-        </div>
+        {filters ? <div className="flex gap-3 flex-wrap">{filters}</div> : null}
       </div>
 
       {/* Chart – black background, connections visible between nodes */}

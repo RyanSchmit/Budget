@@ -60,45 +60,45 @@ export default function Home() {
     "July","August","September","October","November","December",
   ];
 
+  const showMonthYearFilters = activeView === "pie" || activeView === "sankey";
+
+  const monthYearFilters = showMonthYearFilters ? (
+    <>
+      {/* Year Dropdown */}
+      <select
+        value={selectedYear}
+        onChange={(e) => setSelectedYear(Number(e.target.value))}
+        className="bg-white/10 text-white px-4 py-2 rounded-lg"
+      >
+        {(availableYears.length ? availableYears : [currentDate.getFullYear()]).map(
+          (year) => (
+            <option key={year} value={year} className="text-black">
+              {year}
+            </option>
+          )
+        )}
+      </select>
+
+      {/* Month Dropdown */}
+      <select
+        value={selectedMonth}
+        onChange={(e) => setSelectedMonth(Number(e.target.value))}
+        className="bg-white/10 text-white px-4 py-2 rounded-lg"
+      >
+        {monthNames.map((month, index) => (
+          <option key={index} value={index + 1} className="text-black">
+            {month}
+          </option>
+        ))}
+      </select>
+    </>
+  ) : null;
+
   return (
     <div className="min-h-screen bg-black font-sans text-white flex flex-col">
       <Navbar />
       <main className="flex-1 flex w-full flex-col items-center gap-8 bg-black pt-24 pb-8">
         <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-
-          {/* Month + Year Filters */}
-          <div className="flex justify-center gap-4 mb-6">
-
-            {/* Year Dropdown */}
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="bg-white/10 text-white px-4 py-2 rounded-lg"
-            >
-              {availableYears.map((year) => (
-                <option key={year} value={year} className="text-black">
-                  {year}
-                </option>
-              ))}
-            </select>
-
-            {/* Month Dropdown */}
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(Number(e.target.value))}
-              className="bg-white/10 text-white px-4 py-2 rounded-lg"
-            >
-              {monthNames.map((month, index) => (
-                <option
-                  key={index}
-                  value={index + 1}
-                  className="text-black"
-                >
-                  {month}
-                </option>
-              ))}
-            </select>
-          </div>
 
           {/* View Toggle Buttons */}
           <div className="flex justify-center gap-4 mb-6">
@@ -136,21 +136,32 @@ export default function Home() {
             </button>
           </div>
 
+          {/* Month/Year Filters (always visible for relevant views) */}
+          {showMonthYearFilters ? (
+            <div className="flex justify-center gap-3 flex-wrap mb-6">
+              {monthYearFilters}
+            </div>
+          ) : null}
+
           {/* Conditional Rendering */}
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <p className="text-gray-400">Loading transactions...</p>
             </div>
-          ) : filteredTransactions.length === 0 ? (
+          ) : showMonthYearFilters && filteredTransactions.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <p className="text-gray-400">
                 No transactions found for selected month.
               </p>
             </div>
+          ) : !showMonthYearFilters && transactions.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-gray-400">No transactions found.</p>
+            </div>
           ) : activeView === "sankey" ? (
             <SankeyDiagram transactions={filteredTransactions} />
           ) : activeView === "category-stats" ? (
-            <CategoryStatsTable transactions={filteredTransactions} />
+            <CategoryStatsTable transactions={transactions} />
           ) : (
             <CategoryPieChart transactions={filteredTransactions} />
           )}
