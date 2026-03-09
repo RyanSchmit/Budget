@@ -91,9 +91,9 @@ export default function TransactionsTable({
     () =>
       sortedTransactions.reduce(
         (sum, t) => sum + (typeof t.amount === "number" ? t.amount : 0),
-        0
+        0,
       ),
-    [sortedTransactions]
+    [sortedTransactions],
   );
 
   return (
@@ -170,19 +170,31 @@ export default function TransactionsTable({
             {sortedTransactions.map((t) => (
               <tr
                 key={t.id}
+                data-transact-id={t.id}
                 className={`hover:bg-white/5 ${
-                  isDirty?.(t.id) ? "bg-amber-950/30" : ""
+                  isDirty?.(t.id)
+                    ? "bg-amber-950/40 border-l-4 border-amber-400"
+                    : ""
                 }`}
                 title={isDirty?.(t.id) ? "Unsaved changes" : undefined}
               >
                 {/* Select */}
-                <td className="px-4 py-2 text-center">
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.has(t.id)}
-                    onChange={() => onToggleSelect(t.id)}
-                    className="accent-red-600"
-                  />
+                <td className="px-4 py-2">
+                  <div className="flex items-center justify-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(t.id)}
+                      onChange={() => onToggleSelect(t.id)}
+                      className="accent-red-600"
+                    />
+                    {isDirty?.(t.id) ? (
+                      <span
+                        role="img"
+                        aria-label="Unsaved changes"
+                        className="inline-block h-2 w-2 rounded-full bg-amber-400"
+                      />
+                    ) : null}
+                  </div>
                 </td>
 
                 {/* Date */}
@@ -229,7 +241,7 @@ export default function TransactionsTable({
 
                         setCategories((prev) => {
                           const exists = prev.some(
-                            (c) => c.toLowerCase() === normalized
+                            (c) => c.toLowerCase() === normalized,
                           );
 
                           if (exists) return prev;

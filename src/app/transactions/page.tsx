@@ -1,7 +1,7 @@
 "use client";
 
 import Navbar from "../Navbar";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Transaction } from "../types";
 import FileUI from "./csv";
 import LoadTransactionsClient from "./LoadTransactionsClient";
@@ -17,6 +17,14 @@ import SelectionKeywordToolbar from "./keywords/SelectionKeywordToolbar";
 import SaveButton from "./save";
 import { defaultCategories } from "./categories";
 import DeleteSelectedButton from "./delete";
+import { loadTransactions } from "./loadTransactions";
+import { getKeywordRules } from "./keywords/keywordRulesStore";
+import { rulePredict } from "./keywords/keywordSearch";
+import { buildTfidfModel } from "./tfidfModel";
+
+function fingerprintTransaction(t: Transaction) {
+  return `${t.date}|${t.description}|${t.category ?? "N/A"}|${Number(t.amount)}`;
+}
 
 export default function Transactions() {
   const selectionContainerRef = useRef<HTMLDivElement>(null);
@@ -26,6 +34,7 @@ export default function Transactions() {
   const [pendingTransactions, setPendingTransactions] = useState<Transaction[]>(
     [],
   );
+  const [baselineById, setBaselineById] = useState<Record<string, string>>({});
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState("");
@@ -87,6 +96,37 @@ export default function Transactions() {
   const getTransactionKey = (t: Transaction) =>
     `${t.date}|${t.description}|${t.amount}`;
 
+  const applyFreshBaseline = useCallback((txs: Transaction[]) => {
+    const next: Record<string, string> = {};
+    for (const t of txs) {
+      next[t.id] = fingerprintTransaction(t);
+    }
+    setBaselineById(next);
+  }, []);
+
+  const reloadFromDb = useCallback(async () => {
+    const fresh = await loadTransactions();
+    setTransactions(fresh);
+    setSelectedIds(new Set());
+    applyFreshBaseline(fresh);
+  }, [applyFreshBaseline]);
+
+  const { dirtyIds, dirtyTransactions } = useMemo(() => {
+    const ids = new Set<string>();
+    const dirty: Transaction[] = [];
+
+    for (const t of transactions) {
+      const baselineFp = baselineById[t.id];
+      const currentFp = fingerprintTransaction(t);
+      if (!baselineFp || baselineFp !== currentFp) {
+        ids.add(t.id);
+        dirty.push(t);
+      }
+    }
+
+    return { dirtyIds: ids, dirtyTransactions: dirty };
+  }, [transactions, baselineById]);
+
   // get rid of duplicates within pending (keeps first occurrence)
   const uniquePendingTransactions = useMemo(() => {
     const seen = new Set<string>();
@@ -117,13 +157,125 @@ export default function Transactions() {
   // Select-all on visible rows
   const allVisibleSelected = useMemo(() => {
     return areAllVisibleSelected(filteredTransactions, selectedIds);
-  }, [filteredTransactions, selectedIds]);
+  }, [filteredTransactions, selectedIds, transactions]);
 
   const handleSelectAll = () => {
     setSelectedIds((prev) =>
       toggleSelectAllVisible(filteredTransactions, prev),
     );
   };
+
+  const handlePredict = useCallback(async () => {
+    const targetIds =
+      selectedIds.size > 0
+        ? new Set(selectedIds)
+        : new Set(filteredTransactions.map((t) => t.id));
+
+    if (targetIds.size === 0) return;
+
+    const rules = getKeywordRules();
+    const TFIDF_MIN_SCORE = 0.22;
+
+    // Pass 1 (client): keyword rules (fast, deterministic)
+    const afterKeyword = transactions.map((t) => {
+      if (!targetIds.has(t.id)) return t;
+
+      const current = (t.category ?? "").trim();
+      if (current && current !== "N/A") return t;
+
+      const predicted = rulePredict(t.description, t.amount, rules);
+      if (!predicted || predicted === "N/A") return t;
+
+      return { ...t, category: predicted };
+    });
+    setTransactions(afterKeyword);
+
+    // Pass 2 (client, multi-thread): TF-IDF for anything still N/A after keywords
+    const model = buildTfidfModel(
+      afterKeyword.map((t) => ({
+        description: t.description,
+        category: (t.category ?? "").trim(),
+      })),
+    );
+    if (!model) return;
+
+    const remaining = afterKeyword
+      .filter((t) => targetIds.has(t.id))
+      .filter((t) => {
+        const c = (t.category ?? "").trim();
+        return !c || c === "N/A";
+      })
+      .map((t) => ({ transact_id: t.id, description: t.description }));
+
+    if (remaining.length === 0) return;
+
+    const cpu =
+      typeof navigator !== "undefined" ? navigator.hardwareConcurrency : 1;
+    const workerCount = Math.max(
+      1,
+      Math.min(8, Math.floor((cpu ?? 4) - 1), remaining.length),
+    );
+
+    const chunkSize = Math.ceil(remaining.length / workerCount);
+    const chunks: (typeof remaining)[] = [];
+    for (let i = 0; i < remaining.length; i += chunkSize) {
+      chunks.push(remaining.slice(i, i + chunkSize));
+    }
+
+    const makeWorker = () =>
+      new Worker(new URL("./tfidfPredict.worker.ts", import.meta.url), {
+        type: "module",
+      });
+
+    const results = await Promise.all(
+      chunks.map(
+        (items) =>
+          new Promise<
+            Array<{ transact_id: string; category: string; score: number }>
+          >((resolve) => {
+            const w = makeWorker();
+            const cleanup = () => w.terminate();
+
+            w.onmessage = (ev) => {
+              cleanup();
+              const payload = ev.data as { predictions?: unknown };
+              const preds = Array.isArray(payload?.predictions)
+                ? (payload.predictions as Array<{
+                    transact_id: string;
+                    category: string;
+                    score: number;
+                  }>)
+                : [];
+              resolve(preds);
+            };
+            w.onerror = () => {
+              cleanup();
+              resolve([]);
+            };
+
+            w.postMessage({ model, items, minScore: TFIDF_MIN_SCORE });
+          }),
+      ),
+    );
+
+    const byId = new Map(
+      results.flat().map((p) => [p.transact_id, p] as const),
+    );
+    if (byId.size === 0) return;
+
+    setTransactions((prev) =>
+      prev.map((t) => {
+        const p = byId.get(t.id);
+        if (!p) return t;
+
+        const current = (t.category ?? "").trim();
+        if (current && current !== "N/A") return t; // don't overwrite manual edits
+
+        if (!p.category || p.category === "N/A") return t;
+        return { ...t, category: p.category };
+      }),
+    );
+  }, [filteredTransactions, selectedIds, transactions]);
 
   return (
     <div className="min-h-screen bg-black font-sans text-white">
@@ -179,6 +331,7 @@ export default function Transactions() {
                   onLoaded={(txs: Transaction[]) => {
                     setTransactions(txs);
                     setSelectedIds(new Set());
+                    applyFreshBaseline(txs);
                   }}
                 />
 
@@ -210,13 +363,43 @@ export default function Transactions() {
                   {/* Only show Save button if there are transactions */}
                   {transactions.length > 0 && (
                     <div className="flex-shrink-0 flex items-center gap-3">
-                      <SaveButton transactions={transactions} />
+                      <button
+                        type="button"
+                        onClick={handlePredict}
+                        disabled={
+                          (selectedIds.size === 0 &&
+                            filteredTransactions.length === 0) ||
+                          transactions.length === 0
+                        }
+                        className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={
+                          selectedIds.size > 0
+                            ? "Predict categories for selected rows (keywords, then TF-IDF)"
+                            : "Predict categories for all visible rows (keywords, then TF-IDF)"
+                        }
+                      >
+                        Predict
+                      </button>
+
+                      <SaveButton
+                        transactions={dirtyTransactions}
+                        onSaved={(saved) => {
+                          if (!saved.length) return;
+                          setBaselineById((prev) => {
+                            const next = { ...prev };
+                            for (const t of saved) {
+                              next[t.id] = fingerprintTransaction(t);
+                            }
+                            return next;
+                          });
+                        }}
+                      />
 
                       <DeleteSelectedButton
-                        transactions={transactions}
                         selectedIds={selectedIds}
                         setSelectedIds={setSelectedIds}
                         setTransactions={setTransactions}
+                        reloadFromDb={reloadFromDb}
                       />
                     </div>
                   )}
@@ -246,11 +429,21 @@ export default function Transactions() {
                       ...new Set([...categories, ...categoriesList]),
                     ].sort()}
                     setCategories={setCategoriesList}
+                    isDirty={(id) => dirtyIds.has(id)}
                   />
                 </div>
               </div>
 
-              <SelectionKeywordToolbar containerRef={selectionContainerRef} />
+              <SelectionKeywordToolbar
+                containerRef={selectionContainerRef}
+                onSetTransactionCategory={(transactId, category) => {
+                  setTransactions((prev) =>
+                    prev.map((t) =>
+                      t.id === transactId ? { ...t, category } : t,
+                    ),
+                  );
+                }}
+              />
             </>
           ) : (
             // Render Keywords tab

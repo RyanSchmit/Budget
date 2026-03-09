@@ -6,10 +6,10 @@ import { Transaction } from "../types";
 import { loadTransactions } from "./loadTransactions";
 
 type Props = {
-  transactions: Transaction[];
   setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
   selectedIds: Set<string>;
   setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>;
+  reloadFromDb?: () => Promise<void>;
 };
 
 async function deleteTransactions(ids: string[]) {
@@ -33,10 +33,10 @@ async function deleteTransactions(ids: string[]) {
 }
 
 export default function DeleteSelectedButton({
-  transactions,
   setTransactions,
   selectedIds,
   setSelectedIds,
+  reloadFromDb,
 }: Props) {
   const [deleting, setDeleting] = useState(false);
 
@@ -54,17 +54,25 @@ export default function DeleteSelectedButton({
 
       if (!result.success) {
         console.error("Failed to delete transactions:", result.error);
-        const fresh = await loadTransactions();
-        setTransactions(fresh);
+        if (reloadFromDb) {
+          await reloadFromDb();
+        } else {
+          const fresh = await loadTransactions();
+          setTransactions(fresh);
+        }
       }
     } catch (err) {
       console.error("Error deleting transactions:", err);
-      const fresh = await loadTransactions();
-      setTransactions(fresh);
+      if (reloadFromDb) {
+        await reloadFromDb();
+      } else {
+        const fresh = await loadTransactions();
+        setTransactions(fresh);
+      }
     } finally {
       setDeleting(false);
     }
-  }, [selectedIds, deleting, setTransactions, setSelectedIds]);
+  }, [selectedIds, deleting, setTransactions, setSelectedIds, reloadFromDb]);
 
   const disabled = selectedIds.size === 0 || deleting;
 

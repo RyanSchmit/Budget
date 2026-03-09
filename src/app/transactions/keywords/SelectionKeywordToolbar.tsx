@@ -11,13 +11,19 @@ import {
 interface SelectionKeywordToolbarProps {
   /** Only show toolbar when selection is inside this element. */
   containerRef: RefObject<HTMLElement | null>;
+  /** Optionally apply the picked category to the selected transaction row. */
+  onSetTransactionCategory?: (transactId: string, category: string) => void;
 }
 
 export default function SelectionKeywordToolbar({
   containerRef,
+  onSetTransactionCategory,
 }: SelectionKeywordToolbarProps) {
   const [selectedText, setSelectedText] = useState<string | null>(null);
   const [rect, setRect] = useState<DOMRect | null>(null);
+  const [selectedTransactId, setSelectedTransactId] = useState<string | null>(
+    null,
+  );
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [pickedCategory, setPickedCategory] = useState("");
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -28,6 +34,7 @@ export default function SelectionKeywordToolbar({
   const clearSelection = useCallback(() => {
     setSelectedText(null);
     setRect(null);
+    setSelectedTransactId(null);
     setShowCategoryPicker(false);
     setPickedCategory("");
     if (typeof window !== "undefined") {
@@ -50,12 +57,16 @@ export default function SelectionKeywordToolbar({
       if (!text) {
         setSelectedText(null);
         setRect(null);
+        setSelectedTransactId(null);
         setShowCategoryPicker(false);
         return;
       }
       const r = el.getBoundingClientRect();
+      const row = el.closest?.("tr[data-transact-id]") as HTMLElement | null;
+      const transactId = row?.getAttribute("data-transact-id") ?? null;
       setSelectedText(text);
       setRect(r);
+      setSelectedTransactId(transactId);
       setShowCategoryPicker(false);
       setPickedCategory(defaultCategory);
       return;
@@ -67,6 +78,7 @@ export default function SelectionKeywordToolbar({
     if (!text) {
       setSelectedText(null);
       setRect(null);
+      setSelectedTransactId(null);
       setShowCategoryPicker(false);
       return;
     }
@@ -74,19 +86,28 @@ export default function SelectionKeywordToolbar({
     if (!anchor || !containerRef.current.contains(anchor)) {
       setSelectedText(null);
       setRect(null);
+      setSelectedTransactId(null);
       return;
     }
     try {
       const range = sel.getRangeAt(0);
       const r = range.getBoundingClientRect();
       if (r.width === 0 && r.height === 0) return;
+      const anchorEl =
+        anchor instanceof Element ? anchor : anchor.parentElement;
+      const row = anchorEl?.closest?.(
+        "tr[data-transact-id]",
+      ) as HTMLElement | null;
+      const transactId = row?.getAttribute("data-transact-id") ?? null;
       setSelectedText(text);
       setRect(r);
+      setSelectedTransactId(transactId);
       setShowCategoryPicker(false);
       setPickedCategory(defaultCategory);
     } catch {
       setSelectedText(null);
       setRect(null);
+      setSelectedTransactId(null);
     }
   }, [containerRef]);
 
@@ -145,6 +166,9 @@ export default function SelectionKeywordToolbar({
       next.sort((a, b) => a.category.localeCompare(b.category));
     }
     setKeywordRules(next);
+    if (selectedTransactId && onSetTransactionCategory) {
+      onSetTransactionCategory(selectedTransactId, cat);
+    }
     clearSelection();
   };
 

@@ -4,6 +4,9 @@ import { useSyncExternalStore } from "react";
 
 const STORAGE_KEY = "keyword_rules";
 
+let cachedRaw: string | null | undefined = undefined;
+let cachedRules: Rule[] = defaultKeyWords;
+
 function isRuleArray(value: unknown): value is Rule[] {
   if (!Array.isArray(value)) return false;
   return value.every((r) => {
@@ -21,11 +24,23 @@ export function getKeywordRules(): Rule[] {
   if (typeof window === "undefined") return defaultKeyWords;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultKeyWords;
+    // useSyncExternalStore expects getSnapshot to return a stable reference
+    // when the underlying store hasn't changed.
+    if (raw === cachedRaw) return cachedRules;
+
+    cachedRaw = raw;
+    if (!raw) {
+      cachedRules = defaultKeyWords;
+      return cachedRules;
+    }
+
     const parsed: unknown = JSON.parse(raw);
-    return isRuleArray(parsed) ? parsed : defaultKeyWords;
+    cachedRules = isRuleArray(parsed) ? parsed : defaultKeyWords;
+    return cachedRules;
   } catch {
-    return defaultKeyWords;
+    cachedRaw = null;
+    cachedRules = defaultKeyWords;
+    return cachedRules;
   }
 }
 
@@ -44,7 +59,10 @@ export function useKeywordRules(): Rule[] {
 export function setKeywordRules(next: Rule[]) {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    const raw = JSON.stringify(next);
+    window.localStorage.setItem(STORAGE_KEY, raw);
+    cachedRaw = raw;
+    cachedRules = next;
     window.dispatchEvent(new Event("keyword_rules_updated"));
   } catch {
     // ignore write failures (private mode, storage full, etc.)
@@ -54,7 +72,10 @@ export function setKeywordRules(next: Rule[]) {
 export function resetKeywordRulesToDefaults() {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultKeyWords));
+    const raw = JSON.stringify(defaultKeyWords);
+    window.localStorage.setItem(STORAGE_KEY, raw);
+    cachedRaw = raw;
+    cachedRules = defaultKeyWords;
     window.dispatchEvent(new Event("keyword_rules_updated"));
   } catch {
     // ignore
