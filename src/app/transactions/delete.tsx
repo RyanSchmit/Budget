@@ -2,13 +2,16 @@
 
 import { useCallback, useState } from "react";
 import { createClient } from "../../lib/supabase/client";
-import { Transaction } from "../types";
 import { loadTransactions } from "./loadTransactions";
+import { useAppDispatch, useAppSelector } from "../../lib/store/hooks";
+import {
+  removeTransactionsByIds,
+  clearSelectedIds,
+  loadTransactionsSuccess,
+} from "../../lib/store/transactionsSlice";
+import { selectSelectedIdsSet } from "../../lib/store/selectors";
 
 type Props = {
-  setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
-  selectedIds: Set<string>;
-  setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>;
   reloadFromDb?: () => Promise<void>;
 };
 
@@ -32,12 +35,9 @@ async function deleteTransactions(ids: string[]) {
   return { success: true };
 }
 
-export default function DeleteSelectedButton({
-  setTransactions,
-  selectedIds,
-  setSelectedIds,
-  reloadFromDb,
-}: Props) {
+export default function DeleteSelectedButton({ reloadFromDb }: Props) {
+  const dispatch = useAppDispatch();
+  const selectedIds = useAppSelector(selectSelectedIdsSet);
   const [deleting, setDeleting] = useState(false);
 
   const handleDeleteSelected = useCallback(async () => {
@@ -45,8 +45,8 @@ export default function DeleteSelectedButton({
     if (idsToDelete.length === 0 || deleting) return;
 
     // optimistic update
-    setTransactions((prev) => prev.filter((t) => !selectedIds.has(t.id)));
-    setSelectedIds(new Set());
+    dispatch(removeTransactionsByIds(idsToDelete));
+    dispatch(clearSelectedIds());
 
     try {
       setDeleting(true);
@@ -58,7 +58,7 @@ export default function DeleteSelectedButton({
           await reloadFromDb();
         } else {
           const fresh = await loadTransactions();
-          setTransactions(fresh);
+          dispatch(loadTransactionsSuccess(fresh));
         }
       }
     } catch (err) {
@@ -67,12 +67,12 @@ export default function DeleteSelectedButton({
         await reloadFromDb();
       } else {
         const fresh = await loadTransactions();
-        setTransactions(fresh);
+        dispatch(loadTransactionsSuccess(fresh));
       }
     } finally {
       setDeleting(false);
     }
-  }, [selectedIds, deleting, setTransactions, setSelectedIds, reloadFromDb]);
+  }, [selectedIds, deleting, dispatch, reloadFromDb]);
 
   const disabled = selectedIds.size === 0 || deleting;
 

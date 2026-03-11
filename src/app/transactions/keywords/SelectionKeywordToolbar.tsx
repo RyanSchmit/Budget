@@ -2,16 +2,12 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { RefObject } from "react";
-import {
-  getKeywordRules,
-  getKeywordRuleCategories,
-  setKeywordRules,
-} from "./keywordRulesStore";
+import { useAppDispatch, useAppSelector } from "../../../lib/store/hooks";
+import { addKeyword } from "../../../lib/store/keywordsSlice";
+import { selectAllCategories } from "../../../lib/store/selectors";
 
 interface SelectionKeywordToolbarProps {
-  /** Only show toolbar when selection is inside this element. */
   containerRef: RefObject<HTMLElement | null>;
-  /** Optionally apply the picked category to the selected transaction row. */
   onSetTransactionCategory?: (transactId: string, category: string) => void;
 }
 
@@ -19,6 +15,9 @@ export default function SelectionKeywordToolbar({
   containerRef,
   onSetTransactionCategory,
 }: SelectionKeywordToolbarProps) {
+  const dispatch = useAppDispatch();
+  const categories = useAppSelector(selectAllCategories);
+
   const [selectedText, setSelectedText] = useState<string | null>(null);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [selectedTransactId, setSelectedTransactId] = useState<string | null>(
@@ -28,8 +27,12 @@ export default function SelectionKeywordToolbar({
   const [pickedCategory, setPickedCategory] = useState("");
   const toolbarRef = useRef<HTMLDivElement>(null);
 
+  // Ref mirror so event-listener closures always see the latest value without
+  // being re-registered every time showCategoryPicker changes.
+  const showPickerRef = useRef(false);
+  showPickerRef.current = showCategoryPicker;
+
   const defaultCategory = "N/A";
-  const categories = getKeywordRuleCategories(getKeywordRules());
 
   const clearSelection = useCallback(() => {
     setSelectedText(null);
@@ -44,12 +47,13 @@ export default function SelectionKeywordToolbar({
 
   const updateFromSelection = useCallback(() => {
     if (!containerRef.current || typeof window === "undefined") return;
+    // Never clobber state while the category picker is open.
+    if (showPickerRef.current) return;
 
     const el = document.activeElement;
     const isInputOrTextarea =
       el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
 
-    // Selection inside <input> or <textarea> (not reported by getSelection())
     if (isInputOrTextarea && containerRef.current.contains(el)) {
       const start = el.selectionStart ?? 0;
       const end = el.selectionEnd ?? 0;
@@ -72,7 +76,6 @@ export default function SelectionKeywordToolbar({
       return;
     }
 
-    // Selection in document content (e.g. table cell text if not in an input)
     const sel = window.getSelection();
     const text = sel?.toString().trim() ?? "";
     if (!text) {
@@ -113,10 +116,12 @@ export default function SelectionKeywordToolbar({
 
   useEffect(() => {
     const handleMouseUp = () => {
-      // Small delay so selection is updated
       requestAnimationFrame(updateFromSelection);
     };
     const handleSelectionChange = () => {
+      // Ignore selection changes that occur while the category picker is open
+      // (e.g. the select gaining focus clears document selection in some browsers).
+      if (showPickerRef.current) return;
       const sel = window.getSelection();
       if (!sel?.toString().trim()) {
         setSelectedText(null);
@@ -132,7 +137,6 @@ export default function SelectionKeywordToolbar({
     };
   }, [updateFromSelection]);
 
-  // Close toolbar when clicking outside
   useEffect(() => {
     if (!selectedText || !showCategoryPicker) return;
     const handleClick = (e: MouseEvent) => {
@@ -151,21 +155,7 @@ export default function SelectionKeywordToolbar({
     if (!selectedText) return;
     const kw = selectedText.toLowerCase().trim();
     const cat = (pickedCategory || defaultCategory).trim() || "N/A";
-    const rules = getKeywordRules();
-    const next = rules.slice();
-    let rule = next.find((r) => r.category === cat);
-    if (rule) {
-      if (rule.keywords.some((k) => k.toLowerCase() === kw)) {
-        clearSelection();
-        return;
-      }
-      const idx = next.findIndex((r) => r.category === cat);
-      next[idx] = { ...rule, keywords: [...rule.keywords, kw] };
-    } else {
-      next.push({ category: cat, keywords: [kw] });
-      next.sort((a, b) => a.category.localeCompare(b.category));
-    }
-    setKeywordRules(next);
+    dispatch(addKeyword({ category: cat, keyword: kw }));
     if (selectedTransactId && onSetTransactionCategory) {
       onSetTransactionCategory(selectedTransactId, cat);
     }

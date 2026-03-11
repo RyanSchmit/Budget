@@ -1,14 +1,13 @@
 import type { Rule } from "../../types";
-import { getKeywordRules } from "./keywordRulesStore";
 
 export function rulePredict(
   description: string,
   amount: number,
-  rules?: Rule[],
+  rules: Rule[],
 ): string {
   void amount; // reserved for future use (e.g., income/expense-specific rules)
   const text = String(description ?? "").toLowerCase();
-  const effectiveRules = rules ?? getKeywordRules();
+  const effectiveRules = rules;
 
   for (const rule of effectiveRules) {
     if (rule.keywords.some((k) => text.includes(String(k).toLowerCase()))) {

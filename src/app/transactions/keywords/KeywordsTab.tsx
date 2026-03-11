@@ -1,20 +1,26 @@
 "use client";
 
 import { useState } from "react";
+import { useAppDispatch, useAppSelector } from "../../../lib/store/hooks";
 import {
-  getKeywordRuleCategories,
-  resetKeywordRulesToDefaults,
-  setKeywordRules,
-  useKeywordRules,
-} from "./keywordRulesStore";
+  resetToDefaults,
+  addKeyword,
+  removeKeyword,
+} from "../../../lib/store/keywordsSlice";
+import {
+  selectKeywordRules,
+  selectKeywordRuleCategories,
+} from "../../../lib/store/selectors";
 
 export default function KeywordsTab() {
-  const rules = useKeywordRules();
+  const dispatch = useAppDispatch();
+  const rules = useAppSelector(selectKeywordRules);
+  const categories = useAppSelector(selectKeywordRuleCategories);
+
   const [newKeyword, setNewKeyword] = useState("");
   const [newCategory, setNewCategory] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
 
-  const categories = getKeywordRuleCategories(rules);
   const filteredRules =
     categoryFilter === "ALL"
       ? rules
@@ -24,34 +30,12 @@ export default function KeywordsTab() {
     const kw = newKeyword.trim().toLowerCase();
     const cat = (newCategory.trim() || "N/A").replace(/\s+/g, " ").trim();
     if (!kw) return;
-
-    const next = rules.slice();
-    let rule = next.find((r) => r.category === cat);
-    if (rule) {
-      if (rule.keywords.some((k) => k.toLowerCase() === kw)) return;
-      rule = { ...rule, keywords: [...rule.keywords, kw] };
-      const idx = next.findIndex((r) => r.category === cat);
-      next[idx] = rule;
-    } else {
-      next.push({ category: cat, keywords: [kw] });
-      next.sort((a, b) => a.category.localeCompare(b.category));
-    }
-    setKeywordRules(next);
+    dispatch(addKeyword({ category: cat, keyword: kw }));
     setNewKeyword("");
   };
 
   const handleRemove = (category: string, keyword: string) => {
-    const next = rules
-      .map((r) => {
-        if (r.category !== category) return r;
-        const kws = r.keywords.filter(
-          (k) => k.toLowerCase() !== keyword.toLowerCase(),
-        );
-        if (kws.length === 0) return null;
-        return { ...r, keywords: kws };
-      })
-      .filter((r): r is NonNullable<typeof r> => r !== null);
-    setKeywordRules(next);
+    dispatch(removeKeyword({ category, keyword }));
   };
 
   const handleResetToDefaults = () => {
@@ -59,7 +43,7 @@ export default function KeywordsTab() {
       typeof window !== "undefined" &&
       window.confirm("Reset all keywords to defaults? This cannot be undone.")
     ) {
-      resetKeywordRulesToDefaults();
+      dispatch(resetToDefaults());
     }
   };
 
