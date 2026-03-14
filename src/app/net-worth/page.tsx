@@ -242,7 +242,7 @@ export default function NetWorth() {
       <Navbar />
 
       {/* pt-20 prevents navbar overlap */}
-      <main className="flex-1 w-full flex flex-col items-center gap-10 bg-black pt-20 px-4">
+      <main className="flex-1 w-full flex flex-col items-center gap-4 bg-black pt-20 px-4">
         {/* Assets / Liabilities */}
         <div className="flex flex-col lg:flex-row gap-6 w-full max-w-7xl pt-6">
           <FinancialSection
@@ -311,8 +311,7 @@ export default function NetWorth() {
         </div>
 
         {snapshotDate && (
-          <p className="text-sm text-gray-400">
-            Data as of{" "}
+          <p className="text-sm text-gray-400">Data as of{" "}
             {new Date(snapshotDate + "T00:00:00").toLocaleDateString("en-US", {
               year: "numeric",
               month: "long",
@@ -322,7 +321,7 @@ export default function NetWorth() {
         )}
 
         {/* Chart */}
-        <div className="w-full max-w-4xl pb-8 pr-4 sm:pr-6">
+        <div className="w-full max-w-4xl pb-4 pr-4 sm:pr-6">
           <NetWorthChart data={mergedHistory} />
         </div>
       </main>

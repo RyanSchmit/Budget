@@ -122,7 +122,7 @@ export default function TransactionsTable({
 
               <th
                 onClick={() => handleSort("date")}
-                className="px-4 py-3 text-left cursor-pointer select-none"
+                className="px-2 py-3 text-left cursor-pointer select-none w-15"
               >
                 Date{" "}
                 <SortArrow
@@ -133,7 +133,7 @@ export default function TransactionsTable({
 
               <th
                 onClick={() => handleSort("description")}
-                className="px-4 py-3 text-left cursor-pointer select-none"
+                className="px-4 py-3 text-left cursor-pointer select-none w-85"
               >
                 Description{" "}
                 <SortArrow
@@ -155,7 +155,7 @@ export default function TransactionsTable({
 
               <th
                 onClick={() => handleSort("amount")}
-                className="px-4 py-3 text-left cursor-pointer select-none"
+                className="px-4 py-3 text-left cursor-pointer select-none w-32"
               >
                 Amount{" "}
                 <SortArrow
@@ -198,19 +198,19 @@ export default function TransactionsTable({
                 </td>
 
                 {/* Date */}
-                <td className="px-4 py-2 whitespace-nowrap">
+                <td className="px-2 py-2 whitespace-nowrap w-28">
                   <input
                     type="text"
                     value={t.date}
                     onChange={(e) =>
                       onUpdateTransaction(t.id, "date", e.target.value)
                     }
-                    className="w-auto min-w-fit bg-transparent border border-gray-700 rounded px-2 py-1 text-sm"
+                    className="w-full bg-transparent border border-gray-700 rounded px-2 py-1 text-sm"
                   />
                 </td>
 
                 {/* Description */}
-                <td className="px-4 py-2">
+                <td className="px-4 py-2 w-64">
                   <input
                     type="text"
                     value={t.description}
@@ -280,7 +280,7 @@ export default function TransactionsTable({
                 </td>
 
                 {/* Amount */}
-                <td className="px-4 py-2 text-right whitespace-nowrap">
+                <td className="px-4 py-2 text-right whitespace-nowrap w-32">
                   <MoneyInput
                     value={t.amount}
                     onChange={(val) =>
