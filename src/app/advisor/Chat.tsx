@@ -290,9 +290,7 @@ function MessageBubble({ message }: { message: UIMessage }) {
             );
           }
           if (part.type === "dynamic-tool") {
-            return (
-              <ToolResultCard key={i} part={part as DynamicToolUIPart} />
-            );
+            return <ToolResultCard key={i} part={part as DynamicToolUIPart} />;
           }
           return null;
         })}
@@ -369,11 +367,19 @@ export default function Chat() {
 
       <div className="border-t border-gray-800 px-4 py-4">
         <form onSubmit={handleSubmit} className="flex gap-2 items-center">
-          <input
+          <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(e as unknown as React.FormEvent);
+              }
+            }}
             placeholder="Ask about your finances..."
-            className="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            rows={1}
+            className="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm resize-none overflow-hidden"
+            style={{ fieldSizing: "content" } as React.CSSProperties}
             disabled={isLoading}
           />
           <button
