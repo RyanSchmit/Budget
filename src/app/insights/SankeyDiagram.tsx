@@ -110,9 +110,14 @@ export default function SankeyDiagram({
 }: CategoryPieChartProps) {
   const svgRef = useRef<SVGSVGElement>(null);
 
-  // Filter transactions
-  const filteredExpenses = transactions.filter((t) => t.category !== "Income");
-  const filteredIncome = transactions.filter((t) => t.category === "Income");
+  const filteredExpenses = useMemo(
+    () => transactions.filter((t) => t.category !== "Income" && t.amount < 0),
+    [transactions],
+  );
+  const filteredIncome = useMemo(
+    () => transactions.filter((t) => t.category === "Income"),
+    [transactions],
+  );
 
   // Process income by source
   const incomeBySource = useMemo(() => {
@@ -129,7 +134,7 @@ export default function SankeyDiagram({
   }, [incomeBySource]);
 
   const totalSpent = useMemo(() => {
-    return filteredExpenses.reduce((sum, t) => sum + t.amount, 0);
+    return filteredExpenses.reduce((sum, t) => sum + Math.abs(t.amount), 0);
   }, [filteredExpenses]);
 
   // Process expenses by major category

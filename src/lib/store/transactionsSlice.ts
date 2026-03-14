@@ -16,6 +16,7 @@ interface TransactionsState {
   baselineById: Record<string, string>;
   selectedIds: string[];
   categoriesList: string[];
+  loaded: boolean;
 }
 
 const initialState: TransactionsState = {
@@ -24,6 +25,7 @@ const initialState: TransactionsState = {
   baselineById: {},
   selectedIds: [],
   categoriesList: defaultCategories,
+  loaded: false,
 };
 
 const transactionsSlice = createSlice({
@@ -39,6 +41,7 @@ const transactionsSlice = createSlice({
     loadTransactionsSuccess(state, action: PayloadAction<Transaction[]>) {
       state.transactions = action.payload;
       state.selectedIds = [];
+      state.loaded = true;
       const next: Record<string, string> = {};
       for (const t of action.payload) {
         next[t.id] = fingerprintTransaction(t);

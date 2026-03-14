@@ -42,22 +42,24 @@ export default function CategoryPieChart({
   transactions,
   filters,
 }: CategoryPieChartProps) {
-  // Filter out Income
-  const expensesOnly = transactions.filter((t) => t.category !== "Income");
+  // Filter out Income and any positive credits (e.g. Venmo/Zelle received)
+  const expensesOnly = transactions.filter(
+    (t) => t.category !== "Income" && t.amount < 0
+  );
 
   // Filter Income separately
   const incomeOnly = transactions.filter((t) => t.category === "Income");
 
   // Total spent / income
-  const totalSpent = expensesOnly.reduce((sum, t) => sum + t.amount, 0);
-  const totalIncome = incomeOnly.reduce((sum, t) => sum + t.amount, 0);
+  const totalSpent = expensesOnly.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+  const totalIncome = incomeOnly.reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
   // Group expenses by category for pie chart
   const data = Object.values(
     expensesOnly.reduce(
       (acc, t) => {
         if (!acc[t.category]) acc[t.category] = { name: t.category, value: 0 };
-        acc[t.category].value += t.amount;
+        acc[t.category].value += Math.abs(t.amount);
         return acc;
       },
       {} as Record<string, ChartDataItem>,

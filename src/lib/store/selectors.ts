@@ -34,6 +34,9 @@ export const selectSelectedIds = (state: RootState) =>
 export const selectCategoriesList = (state: RootState) =>
   state.transactions.categoriesList;
 
+export const selectTransactionsLoaded = (state: RootState) =>
+  state.transactions.loaded;
+
 export const selectFilters = (state: RootState) => state.filters;
 
 export const selectActiveTab = (state: RootState) => state.ui.activeTab;

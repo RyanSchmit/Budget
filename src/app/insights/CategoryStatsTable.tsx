@@ -63,7 +63,7 @@ export default function CategoryStatsTable({
     > = {};
     for (const t of expensesOnly) {
       const amount = Math.abs(t.amount);
-      const [month, , year] = t.date.split("-");
+      const [year, month] = t.date.split("-");
       const monthKey = `${year}-${month}`;
       if (!byCatMonth[t.category]) byCatMonth[t.category] = {};
       const monthData = byCatMonth[t.category][monthKey] ?? {

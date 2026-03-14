@@ -1,96 +1,158 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import Navbar from "../Navbar";
 import CategoryPieChart from "../insights/PieChart";
 import SankeyDiagram from "../insights/SankeyDiagram";
 import CategoryStatsTable from "../insights/CategoryStatsTable";
-import { loadTransactions } from "../transactions/loadTransactions";
-import { Transaction } from "../types";
+import { useAppSelector } from "../../lib/store/hooks";
+import {
+  selectTransactions,
+  selectTransactionsLoaded,
+} from "../../lib/store/selectors";
+
+type FilterMode = "month" | "period";
+type PeriodOption = "3M" | "6M" | "YTD" | "ALL";
 
 export default function Home() {
   const [activeView, setActiveView] = useState<
     "sankey" | "pie" | "category-stats"
   >("pie");
 
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+  const transactions = useAppSelector(selectTransactions);
+  const loaded = useAppSelector(selectTransactionsLoaded);
 
   const currentDate = new Date();
-  const [selectedYear, setSelectedYear] = useState(
-    currentDate.getFullYear()
-  );
+  const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(
-    currentDate.getMonth() + 1
+    currentDate.getMonth() + 1,
   );
+  const [filterMode, setFilterMode] = useState<FilterMode>("period");
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>("3M");
 
-  // Load transactions
-  useEffect(() => {
-    const fetchTransactions = async () => {
-      setLoading(true);
-      const data = await loadTransactions();
-      setTransactions(data);
-      setLoading(false);
-    };
-
-    fetchTransactions();
-  }, []);
-
-  // Extract unique years from transactions
   const availableYears = useMemo(() => {
     const years = new Set(
-      transactions.map((t) => new Date(t.date).getFullYear())
+      transactions.map((t) => new Date(t.date).getFullYear()),
     );
     return Array.from(years).sort((a, b) => b - a);
   }, [transactions]);
 
-  // Filter transactions by selected month/year
   const filteredTransactions = useMemo(() => {
-    return transactions.filter((t) => {
-      const date = new Date(t.date);
-      return (
-        date.getFullYear() === selectedYear &&
-        date.getMonth() + 1 === selectedMonth
+    if (filterMode === "month") {
+      return transactions.filter((t) => {
+        const date = new Date(t.date);
+        return (
+          date.getFullYear() === selectedYear &&
+          date.getMonth() + 1 === selectedMonth
+        );
+      });
+    }
+
+    const now = new Date();
+    if (selectedPeriod === "ALL") return transactions;
+
+    let cutoff: Date;
+    if (selectedPeriod === "YTD") {
+      cutoff = new Date(now.getFullYear(), 0, 1);
+    } else {
+      const months = selectedPeriod === "3M" ? 3 : 6;
+      cutoff = new Date(
+        now.getFullYear(),
+        now.getMonth() - months,
+        now.getDate(),
       );
-    });
-  }, [transactions, selectedYear, selectedMonth]);
+    }
+
+    return transactions.filter((t) => new Date(t.date) >= cutoff);
+  }, [transactions, filterMode, selectedYear, selectedMonth, selectedPeriod]);
 
   const monthNames = [
-    "January","February","March","April","May","June",
-    "July","August","September","October","November","December",
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
   ];
 
-  const showMonthYearFilters = activeView === "pie" || activeView === "sankey";
+  const periodOptions: PeriodOption[] = ["3M", "6M", "YTD", "ALL"];
 
-  const monthYearFilters = showMonthYearFilters ? (
+  const showFilters = activeView === "pie" || activeView === "sankey";
+
+  const filterControls = showFilters ? (
     <>
-      {/* Year Dropdown */}
-      <select
-        value={selectedYear}
-        onChange={(e) => setSelectedYear(Number(e.target.value))}
-        className="bg-white/10 text-white px-4 py-2 rounded-lg"
-      >
-        {(availableYears.length ? availableYears : [currentDate.getFullYear()]).map(
-          (year) => (
-            <option key={year} value={year} className="text-black">
-              {year}
-            </option>
-          )
-        )}
-      </select>
-
-      {/* Month Dropdown */}
-      <select
-        value={selectedMonth}
-        onChange={(e) => setSelectedMonth(Number(e.target.value))}
-        className="bg-white/10 text-white px-4 py-2 rounded-lg"
-      >
-        {monthNames.map((month, index) => (
-          <option key={index} value={index + 1} className="text-black">
-            {month}
-          </option>
+      {/* Mode Toggle */}
+      <div className="flex rounded-lg overflow-hidden border border-white/20">
+        {(["month", "period"] as FilterMode[]).map((mode) => (
+          <button
+            key={mode}
+            onClick={() => setFilterMode(mode)}
+            className={`px-4 py-2 text-sm font-medium transition capitalize ${
+              filterMode === mode
+                ? "bg-red-600 text-white"
+                : "bg-white/10 text-white/70 hover:bg-white/20"
+            }`}
+          >
+            {mode === "month" ? "Month" : "Period"}
+          </button>
         ))}
-      </select>
+      </div>
+
+      {filterMode === "month" ? (
+        <>
+          {/* Year Dropdown */}
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(Number(e.target.value))}
+            className="bg-white/10 text-white px-4 py-2 rounded-lg"
+          >
+            {(availableYears.length
+              ? availableYears
+              : [currentDate.getFullYear()]
+            ).map((year) => (
+              <option key={year} value={year} className="text-black">
+                {year}
+              </option>
+            ))}
+          </select>
+
+          {/* Month Dropdown */}
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(Number(e.target.value))}
+            className="bg-white/10 text-white px-4 py-2 rounded-lg"
+          >
+            {monthNames.map((month, index) => (
+              <option key={index} value={index + 1} className="text-black">
+                {month}
+              </option>
+            ))}
+          </select>
+        </>
+      ) : (
+        /* Period Buttons */
+        <div className="flex rounded-lg overflow-hidden border border-white/20">
+          {periodOptions.map((p) => (
+            <button
+              key={p}
+              onClick={() => setSelectedPeriod(p)}
+              className={`px-4 py-2 text-sm font-medium transition ${
+                selectedPeriod === p
+                  ? "bg-red-600 text-white"
+                  : "bg-white/10 text-white/70 hover:bg-white/20"
+              }`}
+            >
+              {p === "ALL" ? "All time" : p}
+            </button>
+          ))}
+        </div>
+      )}
     </>
   ) : null;
 
@@ -99,7 +161,6 @@ export default function Home() {
       <Navbar />
       <main className="flex-1 flex w-full flex-col items-center gap-8 bg-black pt-24 pb-8">
         <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-
           {/* View Toggle Buttons */}
           <div className="flex justify-center gap-4 mb-6">
             <button
@@ -136,25 +197,25 @@ export default function Home() {
             </button>
           </div>
 
-          {/* Month/Year Filters (always visible for relevant views) */}
-          {showMonthYearFilters ? (
-            <div className="flex justify-center gap-3 flex-wrap mb-6">
-              {monthYearFilters}
+          {/* Filters */}
+          {showFilters ? (
+            <div className="flex justify-center gap-3 flex-wrap mb-6 items-center">
+              {filterControls}
             </div>
           ) : null}
 
           {/* Conditional Rendering */}
-          {loading ? (
+          {!loaded ? (
             <div className="flex items-center justify-center py-12">
               <p className="text-gray-400">Loading transactions...</p>
             </div>
-          ) : showMonthYearFilters && filteredTransactions.length === 0 ? (
+          ) : showFilters && filteredTransactions.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <p className="text-gray-400">
-                No transactions found for selected month.
+                No transactions found for the selected period.
               </p>
             </div>
-          ) : !showMonthYearFilters && transactions.length === 0 ? (
+          ) : !showFilters && transactions.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <p className="text-gray-400">No transactions found.</p>
             </div>
