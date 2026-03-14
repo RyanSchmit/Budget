@@ -25,6 +25,8 @@ export default function NetWorth() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [snapshotDate, setSnapshotDate] = useState<string | null>(null);
+
   // 🔑 Single source of truth for chart data
   const [history, setHistory] = useState<NetWorthHistoryItem[]>([]);
   const [savedHistory, setSavedHistory] = useState<NetWorthHistoryItem[]>([]);
@@ -75,6 +77,7 @@ export default function NetWorth() {
 
         setAccounts(assetAccounts);
         setLiabilities(liabilityAccounts);
+        setSnapshotDate(snapshot.date);
       } catch (e) {
         console.error("Failed to load net worth snapshot:", e);
       }
@@ -306,6 +309,17 @@ export default function NetWorth() {
             </button>
           </div>
         </div>
+
+        {snapshotDate && (
+          <p className="text-sm text-gray-400">
+            Data as of{" "}
+            {new Date(snapshotDate + "T00:00:00").toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </p>
+        )}
 
         {/* Chart */}
         <div className="w-full max-w-4xl pb-8 pr-4 sm:pr-6">

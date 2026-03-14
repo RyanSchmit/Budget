@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Navbar from "@/app/Navbar";
 
 type GoalType =
@@ -26,33 +26,13 @@ const GOAL_TYPE_OPTIONS: Array<{ value: GoalType; label: string }> = [
   { value: "other", label: "Other" },
 ];
 
-type TimelineType = "flexible" | "by_date";
-
-function clampToQuarterYears(years: number) {
-  if (!Number.isFinite(years) || years <= 0) return 0;
-  return Math.round(years * 4) / 4;
-}
-
-function yearsUntil(dateStr: string) {
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return null;
-  const now = new Date();
-  const diffMs = d.getTime() - now.getTime();
-  if (diffMs <= 0) return 0;
-  return diffMs / (1000 * 60 * 60 * 24 * 365.25);
-}
+type TimelineType = "flexible" | "duration";
 
 export default function GoalQuestions() {
   const [goalType, setGoalType] = useState<GoalType>("emergency_fund");
   const [goalName, setGoalName] = useState("");
   const [timelineType, setTimelineType] = useState<TimelineType>("flexible");
-  const [targetDate, setTargetDate] = useState<string>("");
-
-  const computedYears = useMemo(() => {
-    if (timelineType !== "by_date" || !targetDate) return null;
-    const y = yearsUntil(targetDate);
-    return y == null ? null : clampToQuarterYears(y);
-  }, [timelineType, targetDate]);
+  const [durationYears, setDurationYears] = useState<string>("");
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -112,26 +92,24 @@ export default function GoalQuestions() {
                     className="h-10 w-full rounded-md border border-gray-700 bg-black px-3"
                   >
                     <option value="flexible">Flexible</option>
-                    <option value="by_date">By a target date</option>
+                    <option value="duration">Set duration</option>
                   </select>
                 </div>
 
-                {timelineType === "by_date" ? (
+                {timelineType === "duration" ? (
                   <div>
                     <label className="mb-1 block text-sm text-gray-300">
-                      Target date
+                      Duration (years)
                     </label>
                     <input
-                      type="date"
-                      value={targetDate}
-                      onChange={(e) => setTargetDate(e.target.value)}
+                      type="number"
+                      min="0.25"
+                      step="0.25"
+                      value={durationYears}
+                      onChange={(e) => setDurationYears(e.target.value)}
+                      placeholder="e.g. 5"
                       className="h-10 w-full rounded-md border border-gray-700 bg-black px-3"
                     />
-                    {computedYears != null && (
-                      <p className="mt-1 text-xs text-gray-400">
-                        Time horizon: {computedYears} years
-                      </p>
-                    )}
                   </div>
                 ) : (
                   <div className="hidden sm:block" />
@@ -142,6 +120,18 @@ export default function GoalQuestions() {
                 <p className="text-xs text-gray-400">
                   Tip: emergency funds are often sized at ~3–6 months of
                   expenses.
+                </p>
+              )}
+              {goalType === "retirement" && (
+                <p className="text-xs text-gray-400">
+                  Tip: experts generally recommend having 10–12× your final
+                  annual income saved to maintain your lifestyle in retirement.
+                </p>
+              )}
+              {goalType === "home_down_payment" && (
+                <p className="text-xs text-gray-400">
+                  Tip: a 20% down payment avoids private mortgage insurance
+                  (PMI) and reduces your monthly payment.
                 </p>
               )}
             </div>
