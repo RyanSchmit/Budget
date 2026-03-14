@@ -4,39 +4,37 @@ import MoneyInput from "../MoneyInput";
 import { useMemo, useState } from "react";
 import { Transaction } from "../types";
 import { formatMoney } from "../format";
-
-interface TransactionsTableProps {
-  transactions: Transaction[];
-  selectedIds: Set<string>;
-  onUpdateTransaction: (
-    id: string,
-    field: keyof Transaction,
-    value: string | number,
-  ) => void;
-  onToggleSelect: (id: string) => void;
-  onToggleSelectAll: () => void;
-  allVisibleSelected: boolean;
-  categories: string[];
-  setCategories: React.Dispatch<React.SetStateAction<string[]>>;
-  isDirty?: (id: string) => boolean;
-}
+import { useAppDispatch, useAppSelector } from "../../lib/store/hooks";
+import {
+  selectFilteredTransactions,
+  selectSelectedIdsSet,
+  selectAllVisibleSelected,
+  selectMergedCategories,
+  selectDirtyState,
+  selectCategoriesList,
+} from "../../lib/store/selectors";
+import {
+  toggleSelectId,
+  setSelectedIds,
+  updateTransaction,
+  setCategoriesList,
+} from "../../lib/store/transactionsSlice";
+import { toggleSelectAllVisible } from "./filter";
 
 interface SortConfig {
   key: keyof Transaction | null;
   direction: "asc" | "desc";
 }
 
-export default function TransactionsTable({
-  transactions,
-  selectedIds,
-  onUpdateTransaction,
-  onToggleSelect,
-  onToggleSelectAll,
-  allVisibleSelected,
-  categories,
-  setCategories,
-  isDirty,
-}: TransactionsTableProps) {
+export default function TransactionsTable() {
+  const dispatch = useAppDispatch();
+  const transactions = useAppSelector(selectFilteredTransactions);
+  const selectedIds = useAppSelector(selectSelectedIdsSet);
+  const allVisibleSelected = useAppSelector(selectAllVisibleSelected);
+  const categories = useAppSelector(selectMergedCategories);
+  const categoriesList = useAppSelector(selectCategoriesList);
+  const { dirtyIds } = useAppSelector(selectDirtyState);
+
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: null,
     direction: "desc",
@@ -49,6 +47,11 @@ export default function TransactionsTable({
       }
       return { key, direction: "desc" };
     });
+  };
+
+  const handleToggleSelectAll = () => {
+    const next = toggleSelectAllVisible(transactions, selectedIds);
+    dispatch(setSelectedIds(Array.from(next)));
   };
 
   const SortArrow = ({
@@ -115,7 +118,7 @@ export default function TransactionsTable({
 
                     el.indeterminate = someSelected;
                   }}
-                  onChange={onToggleSelectAll}
+                  onChange={handleToggleSelectAll}
                   className="accent-red-600"
                 />
               </th>
@@ -172,11 +175,11 @@ export default function TransactionsTable({
                 key={t.id}
                 data-transact-id={t.id}
                 className={`hover:bg-white/5 ${
-                  isDirty?.(t.id)
+                  dirtyIds.has(t.id)
                     ? "bg-amber-950/40 border-l-4 border-amber-400"
                     : ""
                 }`}
-                title={isDirty?.(t.id) ? "Unsaved changes" : undefined}
+                title={dirtyIds.has(t.id) ? "Unsaved changes" : undefined}
               >
                 {/* Select */}
                 <td className="px-4 py-2">
@@ -184,10 +187,10 @@ export default function TransactionsTable({
                     <input
                       type="checkbox"
                       checked={selectedIds.has(t.id)}
-                      onChange={() => onToggleSelect(t.id)}
+                      onChange={() => dispatch(toggleSelectId(t.id))}
                       className="accent-red-600"
                     />
-                    {isDirty?.(t.id) ? (
+                    {dirtyIds.has(t.id) ? (
                       <span
                         role="img"
                         aria-label="Unsaved changes"
@@ -203,7 +206,7 @@ export default function TransactionsTable({
                     type="text"
                     value={t.date}
                     onChange={(e) =>
-                      onUpdateTransaction(t.id, "date", e.target.value)
+                      dispatch(updateTransaction({ id: t.id, field: "date", value: e.target.value }))
                     }
                     className="w-full bg-transparent border border-gray-700 rounded px-2 py-1 text-sm"
                   />
@@ -215,7 +218,7 @@ export default function TransactionsTable({
                     type="text"
                     value={t.description}
                     onChange={(e) =>
-                      onUpdateTransaction(t.id, "description", e.target.value)
+                      dispatch(updateTransaction({ id: t.id, field: "description", value: e.target.value }))
                     }
                     className="w-full bg-transparent border border-gray-700 rounded px-2 py-1 text-sm"
                   />
@@ -233,23 +236,21 @@ export default function TransactionsTable({
                         const value = e.target.value.trim();
 
                         if (!value) {
-                          onUpdateTransaction(t.id, "category", "N/A");
+                          dispatch(updateTransaction({ id: t.id, field: "category", value: "N/A" }));
                           return;
                         }
 
                         const normalized = value.toLowerCase();
 
-                        setCategories((prev) => {
-                          const exists = prev.some(
-                            (c) => c.toLowerCase() === normalized,
-                          );
+                        const exists = categoriesList.some(
+                          (c) => c.toLowerCase() === normalized,
+                        );
 
-                          if (exists) return prev;
+                        if (!exists) {
+                          dispatch(setCategoriesList([...categoriesList, value].sort()));
+                        }
 
-                          return [...prev, value].sort();
-                        });
-
-                        onUpdateTransaction(t.id, "category", value);
+                        dispatch(updateTransaction({ id: t.id, field: "category", value }));
                       }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter")
@@ -260,11 +261,7 @@ export default function TransactionsTable({
                     <select
                       value={t.category}
                       onChange={(e) => {
-                        if (e.target.value === "__NEW__") {
-                          onUpdateTransaction(t.id, "category", "__NEW__");
-                        } else {
-                          onUpdateTransaction(t.id, "category", e.target.value);
-                        }
+                        dispatch(updateTransaction({ id: t.id, field: "category", value: e.target.value }));
                       }}
                       className="w-full bg-black border border-gray-700 rounded px-2 py-1 text-sm"
                     >
@@ -284,7 +281,7 @@ export default function TransactionsTable({
                   <MoneyInput
                     value={t.amount}
                     onChange={(val) =>
-                      onUpdateTransaction(t.id, "amount", Number(val))
+                      dispatch(updateTransaction({ id: t.id, field: "amount", value: Number(val) }))
                     }
                     placeholder="$0.00"
                     className="w-24 bg-transparent border border-gray-700 rounded px-2 py-1 text-sm text-right"

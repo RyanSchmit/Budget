@@ -5,10 +5,7 @@ import { useCallback, useRef } from "react";
 import { Transaction } from "../types";
 import FileUI from "./csv";
 import LoadTransactionsClient from "./LoadTransactionsClient";
-import {
-  FilterBar,
-  toggleSelectAllVisible,
-} from "./filter";
+import { FilterBar } from "./filter";
 import TransactionsTable from "./table";
 import KeywordsTab from "./keywords/KeywordsTab";
 import SelectionKeywordToolbar from "./keywords/SelectionKeywordToolbar";
@@ -23,10 +20,7 @@ import {
   setPendingTransactions,
   addPendingToTransactions,
   updateTransaction,
-  toggleSelectId,
-  setSelectedIds,
   updateBaselineForSaved,
-  setCategoriesList,
   setTransactions,
 } from "../../lib/store/transactionsSlice";
 import {
@@ -45,15 +39,11 @@ import {
   selectTransactionCategories,
   selectUniquePendingTransactions,
   selectDirtyState,
-  selectAllVisibleSelected,
-  selectSelectedIdsSet,
   selectFilters,
   selectActiveTab,
-  selectMergedCategories,
   selectTransactions,
   selectSelectedIds,
   selectKeywordRules,
-  selectCategoriesList,
 } from "../../lib/store/selectors";
 
 export default function Transactions() {
@@ -62,7 +52,6 @@ export default function Transactions() {
 
   const transactions = useAppSelector(selectTransactions);
   const selectedIds = useAppSelector(selectSelectedIds);
-  const selectedIdsSet = useAppSelector(selectSelectedIdsSet);
   const filters = useAppSelector(selectFilters);
   const activeTab = useAppSelector(selectActiveTab);
   const filteredTransactions = useAppSelector(selectFilteredTransactions);
@@ -71,21 +60,13 @@ export default function Transactions() {
   const uniquePendingTransactions = useAppSelector(
     selectUniquePendingTransactions,
   );
-  const { dirtyIds, dirtyTransactions } = useAppSelector(selectDirtyState);
-  const allVisibleSelected = useAppSelector(selectAllVisibleSelected);
-  const mergedCategories = useAppSelector(selectMergedCategories);
-  const categoriesList = useAppSelector(selectCategoriesList);
+  const { dirtyTransactions } = useAppSelector(selectDirtyState);
   const keywordRules = useAppSelector(selectKeywordRules);
 
   const reloadFromDb = useCallback(async () => {
     const fresh = await loadTransactions();
     dispatch(loadTransactionsSuccess(fresh));
   }, [dispatch]);
-
-  const handleSelectAll = () => {
-    const next = toggleSelectAllVisible(filteredTransactions, selectedIdsSet);
-    dispatch(setSelectedIds(Array.from(next)));
-  };
 
   const handlePredict = useCallback(async () => {
     const targetIds =
@@ -304,31 +285,7 @@ export default function Transactions() {
                 </div>
 
                 <div className="mb-8 mt-8">
-                  <TransactionsTable
-                    transactions={filteredTransactions}
-                    selectedIds={selectedIdsSet}
-                    onToggleSelect={(id) => dispatch(toggleSelectId(id))}
-                    onToggleSelectAll={handleSelectAll}
-                    allVisibleSelected={allVisibleSelected}
-                    onUpdateTransaction={(id, field, value) => {
-                      dispatch(
-                        updateTransaction({
-                          id,
-                          field: field as keyof Transaction,
-                          value,
-                        }),
-                      );
-                    }}
-                    categories={mergedCategories}
-                    setCategories={(updater) => {
-                      const next =
-                        typeof updater === "function"
-                          ? updater(categoriesList)
-                          : updater;
-                      dispatch(setCategoriesList(next));
-                    }}
-                    isDirty={(id) => dirtyIds.has(id)}
-                  />
+                  <TransactionsTable />
                 </div>
               </div>
 
