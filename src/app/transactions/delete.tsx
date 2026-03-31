@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { createClient } from "../../lib/supabase/client";
+import { deleteTransaction } from "../../lib/api/client";
 import { loadTransactions } from "./loadTransactions";
 import { useAppDispatch, useAppSelector } from "../../lib/store/hooks";
 import {
@@ -20,19 +20,14 @@ async function deleteTransactions(ids: string[]) {
     return { success: false, error: "No IDs provided" };
   }
 
-  const supabase = await createClient();
-
-  const { error } = await supabase
-    .from("transactions")
-    .delete()
-    .in("transact_id", ids);
-
-  if (error) {
-    console.error("Supabase delete error:", error);
-    return { success: false, error: error.message };
+  try {
+    await Promise.all(ids.map((id) => deleteTransaction(id)));
+    return { success: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("Delete error:", message);
+    return { success: false, error: message };
   }
-
-  return { success: true };
 }
 
 export default function DeleteSelectedButton({ reloadFromDb }: Props) {
@@ -44,7 +39,6 @@ export default function DeleteSelectedButton({ reloadFromDb }: Props) {
     const idsToDelete = Array.from(selectedIds);
     if (idsToDelete.length === 0 || deleting) return;
 
-    // optimistic update
     dispatch(removeTransactionsByIds(idsToDelete));
     dispatch(clearSelectedIds());
 

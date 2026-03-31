@@ -79,6 +79,12 @@ export default function Navbar() {
                 >
                   Net Worth
                 </Link>
+                <Link
+                  href="/advisor"
+                  className="text-sm font-medium text-zinc-700 hover:text-black dark:text-zinc-300 dark:hover:text-zinc-50 px-3 py-1 rounded"
+                >
+                  AI Advisor
+                </Link>
               </nav>
             )}
 
