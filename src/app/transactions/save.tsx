@@ -1,7 +1,10 @@
 "use client";
 
 import { Transaction } from "../types";
-import { createClient } from "../../lib/supabase/client";
+import {
+  updateTransaction,
+  createTransaction,
+} from "../../lib/api/client";
 import { useMemo, useState } from "react";
 
 export default function SaveButton({
@@ -11,7 +14,6 @@ export default function SaveButton({
   transactions: Transaction[];
   onSaved?: (saved: Transaction[]) => void;
 }) {
-  const supabase = createClient();
   const [saving, setSaving] = useState(false);
 
   const buttonLabel = useMemo(() => {
@@ -23,41 +25,29 @@ export default function SaveButton({
   const handleSave = async (): Promise<void> => {
     if (!transactions || transactions.length === 0 || saving) return;
 
-    // Get current logged in user
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      console.error("No authenticated user:", userError);
-      return;
-    }
-
-    // Convert transactions to DB format
-    const rows = transactions.map((t) => ({
-      transact_id: t.id, // assuming t.id is already a UUID
-      user_id: user.id,
-      date: t.date, // must be "YYYY-MM-DD"
-      description: t.description,
-      category: t.category ?? "N/A",
-      amount: t.amount,
-    }));
-
     try {
       setSaving(true);
-      const { data, error } = await supabase
-        .from("transactions")
-        .upsert(rows, { onConflict: "transact_id" })
-        .select();
 
-      if (error) {
-        console.error("Upsert error:", error);
-        return;
-      }
+      await Promise.all(
+        transactions.map(async (t) => {
+          const body = {
+            date: t.date,
+            description: t.description,
+            category: t.category ?? "N/A",
+            amount: t.amount,
+          };
 
-      console.log("Upserted rows:", data);
+          try {
+            await updateTransaction(t.id, body);
+          } catch {
+            await createTransaction(body);
+          }
+        }),
+      );
+
       onSaved?.(transactions);
+    } catch (err) {
+      console.error("Save error:", err);
     } finally {
       setSaving(false);
     }
