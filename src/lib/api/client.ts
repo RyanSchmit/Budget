@@ -1,19 +1,6 @@
-import { createClient } from "@/lib/supabase/client";
+import { getAccessToken } from "@/lib/api/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
-
-async function getAccessToken(): Promise<string> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session?.access_token) {
-    throw new Error("Not authenticated");
-  }
-
-  return session.access_token;
-}
 
 async function apiFetch<T = unknown>(
   path: string,
@@ -167,5 +154,86 @@ export function deleteSnapshotAccount(
 ): Promise<void> {
   return apiFetch(`/api/snapshots/${snapshotId}/accounts/${accountId}`, {
     method: "DELETE",
+  });
+}
+
+// ── Advisor ───────────────────────────────────────────────────
+
+export interface AdvisorConversation {
+  id: string;
+  user_id: string;
+  title: string | null;
+  status: "active" | "archived";
+  created_at: string;
+  updated_at: string;
+  advisor_conversation_context?: { snapshot_id: string }[];
+}
+
+export interface AdvisorMessage {
+  id: string;
+  conversation_id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  metadata?: Record<string, unknown> | null;
+  tokens_used?: number | null;
+  created_at: string;
+}
+
+export function listAdvisorConversations(): Promise<{
+  conversations: AdvisorConversation[];
+}> {
+  return apiFetch("/api/advisor/conversations");
+}
+
+export function createAdvisorConversation(data?: {
+  title?: string;
+  snapshot_id?: string;
+}): Promise<{ conversation: AdvisorConversation }> {
+  return apiFetch("/api/advisor/conversations", {
+    method: "POST",
+    body: JSON.stringify(data ?? {}),
+  });
+}
+
+export function getAdvisorConversation(
+  id: string,
+): Promise<{ conversation: AdvisorConversation }> {
+  return apiFetch(`/api/advisor/conversations/${id}`);
+}
+
+export function updateAdvisorConversation(
+  id: string,
+  data: { title?: string; status?: "active" | "archived" },
+): Promise<{ conversation: AdvisorConversation }> {
+  return apiFetch(`/api/advisor/conversations/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteAdvisorConversation(id: string): Promise<void> {
+  return apiFetch(`/api/advisor/conversations/${id}`, { method: "DELETE" });
+}
+
+export function getAdvisorMessages(
+  conversationId: string,
+  options?: { limit?: number; before?: string },
+): Promise<{ messages: AdvisorMessage[]; next_cursor: string | null }> {
+  const params = new URLSearchParams();
+  if (options?.limit) params.set("limit", String(options.limit));
+  if (options?.before) params.set("before", options.before);
+  const qs = params.toString();
+  return apiFetch(
+    `/api/advisor/conversations/${conversationId}/messages${qs ? `?${qs}` : ""}`,
+  );
+}
+
+export function sendAdvisorMessage(
+  conversationId: string,
+  content: string,
+): Promise<{ user_message: AdvisorMessage; assistant_message: AdvisorMessage }> {
+  return apiFetch(`/api/advisor/conversations/${conversationId}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ content }),
   });
 }
