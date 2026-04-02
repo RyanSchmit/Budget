@@ -2,143 +2,175 @@
 
 import { useState } from "react";
 import Navbar from "@/app/Navbar";
-
-type GoalType =
-  | "emergency_fund"
-  | "retirement"
-  | "home_down_payment"
-  | "education"
-  | "debt_payoff"
-  | "travel"
-  | "vehicle"
-  | "wedding"
-  | "other";
-
-const GOAL_TYPE_OPTIONS: Array<{ value: GoalType; label: string }> = [
-  { value: "emergency_fund", label: "Emergency fund" },
-  { value: "retirement", label: "Retirement" },
-  { value: "home_down_payment", label: "Home down payment" },
-  { value: "education", label: "Education" },
-  { value: "debt_payoff", label: "Debt payoff" },
-  { value: "travel", label: "Travel" },
-  { value: "vehicle", label: "Vehicle" },
-  { value: "wedding", label: "Wedding" },
-  { value: "other", label: "Other" },
-];
-
-type TimelineType = "flexible" | "duration";
+import { useGoals } from "./useGoals";
+import { Goal, GOAL_TYPE_OPTIONS } from "./goalTypes";
+import GoalCard from "./GoalCard";
+import GoalForm from "./GoalForm";
+import { formatMoney } from "@/app/format";
+import { calculateTimeToGoal } from "./goalCalculate";
 
 export default function GoalQuestions() {
-  const [goalType, setGoalType] = useState<GoalType>("emergency_fund");
-  const [goalName, setGoalName] = useState("");
-  const [timelineType, setTimelineType] = useState<TimelineType>("flexible");
-  const [durationYears, setDurationYears] = useState<string>("");
+  const { goals, loaded, addGoal, updateGoal, removeGoal } = useGoals();
+  const [showForm, setShowForm] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+
+  function handleSave(goal: Goal) {
+    if (editingGoal) {
+      updateGoal(goal);
+    } else {
+      addGoal(goal);
+    }
+    setShowForm(false);
+    setEditingGoal(null);
+  }
+
+  function handleEdit(goal: Goal) {
+    setEditingGoal(goal);
+    setShowForm(true);
+  }
+
+  function handleCancel() {
+    setShowForm(false);
+    setEditingGoal(null);
+  }
+
+  // Summary stats
+  const totalWeekly = goals.reduce((sum, g) => sum + g.weeklyContribution, 0);
+
+  const nearestEta = goals.reduce<{ label: string; weeks: number } | null>((best, g) => {
+    if (g.weeklyContribution <= 0 || g.currentSavings >= g.targetAmount) return best;
+    if (g.timeline === "flexible") {
+      const result = calculateTimeToGoal({
+        principal: g.currentSavings,
+        weeklyContribution: g.weeklyContribution,
+        annualRate: g.annualRate,
+        target: g.targetAmount,
+      });
+      if (!result) return best;
+      if (!best || result.weeks < best.weeks) {
+        const etaStr =
+          result.years === 0
+            ? `${result.months}mo`
+            : result.months === 0
+            ? `${result.years}y`
+            : `${result.years}y ${result.months}mo`;
+        return { label: `${g.name} in ${etaStr}`, weeks: result.weeks };
+      }
+    }
+    return best;
+  }, null);
+
+  const completedGoals = goals.filter((g) => g.currentSavings >= g.targetAmount).length;
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       <Navbar />
 
-      <div className="flex min-h-[calc(100vh-64px)] justify-center px-4">
-        <div className="w-full max-w-2xl space-y-6">
-          <div className="mt-25 space-y-6 rounded-xl border border-gray-800 bg-gray-900 p-4 shadow-lg">
-            <h2 className="text-center text-2xl font-semibold">Goals</h2>
+      <div className="mx-auto max-w-5xl px-4 pb-20">
+        {/* Page header */}
+        <div className="mt-28 mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Goals</h1>
+            <p className="mt-1 text-sm text-gray-400">
+              Plan and track your financial goals
+            </p>
+          </div>
+          {!showForm && (
+            <button
+              onClick={() => {
+                setEditingGoal(null);
+                setShowForm(true);
+              }}
+              className="rounded-lg bg-green-600 px-5 py-2.5 text-sm font-medium transition hover:bg-green-500"
+            >
+              + Add Goal
+            </button>
+          )}
+        </div>
 
-            <div className="space-y-4 rounded-lg border border-gray-800 bg-gray-950/40 p-4">
-              <h3 className="text-sm font-semibold text-gray-200">
-                What are you planning for?
-              </h3>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-sm text-gray-300">
-                    Goal type
-                  </label>
-                  <select
-                    value={goalType}
-                    onChange={(e) => setGoalType(e.target.value as GoalType)}
-                    className="h-10 w-full rounded-md border border-gray-700 bg-black px-3"
-                  >
-                    {GOAL_TYPE_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm text-gray-300">
-                    Goal name (optional)
-                  </label>
-                  <input
-                    value={goalName}
-                    onChange={(e) => setGoalName(e.target.value)}
-                    placeholder="e.g. House down payment"
-                    className="h-10 w-full rounded-md border border-gray-700 bg-black px-3"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-sm text-gray-300">
-                    Timeline
-                  </label>
-                  <select
-                    value={timelineType}
-                    onChange={(e) =>
-                      setTimelineType(e.target.value as TimelineType)
-                    }
-                    className="h-10 w-full rounded-md border border-gray-700 bg-black px-3"
-                  >
-                    <option value="flexible">Flexible</option>
-                    <option value="duration">Set duration</option>
-                  </select>
-                </div>
-
-                {timelineType === "duration" ? (
-                  <div>
-                    <label className="mb-1 block text-sm text-gray-300">
-                      Duration (years)
-                    </label>
-                    <input
-                      type="number"
-                      min="0.25"
-                      step="0.25"
-                      value={durationYears}
-                      onChange={(e) => setDurationYears(e.target.value)}
-                      placeholder="e.g. 5"
-                      className="h-10 w-full rounded-md border border-gray-700 bg-black px-3"
-                    />
-                  </div>
-                ) : (
-                  <div className="hidden sm:block" />
-                )}
-              </div>
-
-              {goalType === "emergency_fund" && (
-                <p className="text-xs text-gray-400">
-                  Tip: emergency funds are often sized at ~3–6 months of
-                  expenses.
-                </p>
-              )}
-              {goalType === "retirement" && (
-                <p className="text-xs text-gray-400">
-                  Tip: experts generally recommend having 10–12× your final
-                  annual income saved to maintain your lifestyle in retirement.
-                </p>
-              )}
-              {goalType === "home_down_payment" && (
-                <p className="text-xs text-gray-400">
-                  Tip: a 20% down payment avoids private mortgage insurance
-                  (PMI) and reduces your monthly payment.
-                </p>
-              )}
+        {/* Summary stats (only if there are goals) */}
+        {goals.length > 0 && !showForm && (
+          <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
+              <p className="text-xs text-gray-500 uppercase tracking-wide">Goals</p>
+              <p className="mt-1 text-2xl font-bold">{goals.length}</p>
+            </div>
+            <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
+              <p className="text-xs text-gray-500 uppercase tracking-wide">Completed</p>
+              <p className="mt-1 text-2xl font-bold text-green-400">{completedGoals}</p>
+            </div>
+            <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
+              <p className="text-xs text-gray-500 uppercase tracking-wide">Weekly commitment</p>
+              <p className="mt-1 text-2xl font-bold">{formatMoney(totalWeekly)}</p>
+            </div>
+            <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
+              <p className="text-xs text-gray-500 uppercase tracking-wide">Nearest deadline</p>
+              <p className="mt-1 text-sm font-semibold text-yellow-300 leading-snug">
+                {nearestEta?.label ?? "—"}
+              </p>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* Add / Edit form */}
+        {showForm && (
+          <div className="mb-8 rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-xl">
+            <h2 className="mb-5 text-xl font-semibold">
+              {editingGoal ? `Edit: ${editingGoal.name}` : "New Goal"}
+            </h2>
+            <GoalForm
+              initial={editingGoal ?? undefined}
+              onSave={handleSave}
+              onCancel={handleCancel}
+            />
+          </div>
+        )}
+
+        {/* Goals grid */}
+        {!showForm && loaded && (
+          <>
+            {goals.length === 0 ? (
+              <div className="mt-16 flex flex-col items-center gap-5 text-center">
+                <div className="text-6xl">🎯</div>
+                <div>
+                  <h2 className="text-xl font-semibold">No goals yet</h2>
+                  <p className="mt-2 text-sm text-gray-400 max-w-sm">
+                    Add your first financial goal to start tracking your progress and
+                    see personalized projections.
+                  </p>
+                </div>
+                <div className="flex flex-wrap justify-center gap-2 mt-2">
+                  {GOAL_TYPE_OPTIONS.map((o) => (
+                    <span
+                      key={o.value}
+                      className="rounded-full border border-gray-700 bg-gray-800 px-3 py-1 text-xs text-gray-400"
+                    >
+                      {o.icon} {o.label}
+                    </span>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setShowForm(true)}
+                  className="mt-2 rounded-lg bg-green-600 px-6 py-3 font-medium transition hover:bg-green-500"
+                >
+                  Add your first goal
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                {goals.map((goal) => (
+                  <GoalCard
+                    key={goal.id}
+                    goal={goal}
+                    onEdit={handleEdit}
+                    onDelete={removeGoal}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
 }
-

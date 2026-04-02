@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import {
   type AdvisorMessage,
@@ -60,41 +61,63 @@ function TypingIndicator() {
 }
 
 export default function Chat() {
+  const searchParams = useSearchParams();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<AdvisorMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const optimisticIdRef = useRef<string | null>(null);
+  const prefillHandledRef = useRef(false);
+
+  // Pre-fill from ?q= param (e.g. when navigating from Goals page)
+  useEffect(() => {
+    const q = searchParams.get("q");
+    if (q && !prefillHandledRef.current) {
+      setInput(decodeURIComponent(q));
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     listAdvisorConversations()
       .then(async ({ conversations }) => {
         const recent = conversations[0];
+        let id: string;
         if (recent) {
-          setConversationId(recent.id);
-          const { messages: history } = await getAdvisorMessages(recent.id);
+          id = recent.id;
+          setConversationId(id);
+          const { messages: history } = await getAdvisorMessages(id);
           setMessages(history ?? []);
         } else {
           const { conversation } = await createAdvisorConversation();
-          setConversationId(conversation.id);
+          id = conversation.id;
+          setConversationId(id);
+        }
+        // Auto-submit pre-filled question from ?q= param
+        const q = searchParams.get("q");
+        if (q && !prefillHandledRef.current) {
+          prefillHandledRef.current = true;
+          const decoded = decodeURIComponent(q);
+          setInput("");
+          await submitMessageWithId(id, decoded);
         }
       })
       .catch((err) => {
         console.error("Advisor init error:", err);
         setError("Failed to load conversation. Please refresh.");
       });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const submitMessage = async (text: string) => {
-    if (!text.trim() || isLoading || !conversationId) return;
+  const submitMessageWithId = async (convId: string, text: string) => {
+    if (!text.trim() || isLoading) return;
 
     const optimisticId = `optimistic-${Date.now()}`;
     optimisticIdRef.current = optimisticId;
 
     const optimisticMessage: AdvisorMessage = {
       id: optimisticId,
-      conversation_id: conversationId,
+      conversation_id: convId,
       role: "user",
       content: text.trim(),
       created_at: new Date().toISOString(),
@@ -107,7 +130,7 @@ export default function Chat() {
 
     try {
       const { user_message, assistant_message } = await sendAdvisorMessage(
-        conversationId,
+        convId,
         text.trim(),
       );
       setMessages((prev) =>
@@ -121,6 +144,11 @@ export default function Chat() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const submitMessage = async (text: string) => {
+    if (!conversationId) return;
+    await submitMessageWithId(conversationId, text);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
