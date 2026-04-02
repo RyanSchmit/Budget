@@ -48,14 +48,6 @@ export default function Footer() {
                   Bonds vs. Stocks Simulator
                 </Link>
               </li>
-              <li>
-                <Link
-                  href="/calculators/car-depreciation"
-                  className="text-sm text-zinc-600 hover:text-black dark:text-zinc-400 dark:hover:text-white"
-                >
-                  Car Depreciation Graph
-                </Link>
-              </li>
             </ul>
           </div>
 
