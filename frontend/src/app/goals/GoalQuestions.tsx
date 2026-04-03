@@ -66,9 +66,9 @@ export default function GoalQuestions() {
     <div className="min-h-screen bg-gray-950 text-white">
       <Navbar />
 
-      <div className="mx-auto max-w-5xl px-4 pb-20">
+      <div className="mx-auto max-w-5xl px-4 pt-20 pb-20">
         {/* Page header */}
-        <div className="mt-28 mb-8 flex items-center justify-between">
+        <div className="mt-8 mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Goals</h1>
             <p className="mt-1 text-sm text-gray-400">

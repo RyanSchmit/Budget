@@ -3,6 +3,23 @@ import Papa from "papaparse";
 import { Transaction } from "../types";
 import { useState } from "react";
 
+const normalizeDate = (raw: string): string => {
+  if (!raw) return raw;
+  // Already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  // MM/DD/YYYY or MM/DD/YY
+  const slashMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (slashMatch) {
+    const [, month, day, yearRaw] = slashMatch;
+    const year = yearRaw.length === 2 ? `20${yearRaw}` : yearRaw;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+  // Fallback: let the JS Date parser try
+  const parsed = new Date(raw);
+  if (!isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  return raw;
+};
+
 const handleCSVUpload = (
   file: File,
   onComplete: (transactions: Transaction[]) => void,
@@ -36,7 +53,7 @@ const handleCSVUpload = (
 
         return {
           id: crypto.randomUUID(),
-          date: row.Date || row.date || "",
+          date: normalizeDate(row.Date || row.date || ""),
           description: row.Description || row.description || "",
           category: "N/A",
           amount,

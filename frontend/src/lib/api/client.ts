@@ -39,8 +39,16 @@ export interface ApiTransaction {
   updated_at?: string;
 }
 
-export function fetchTransactions(): Promise<ApiTransaction[]> {
-  return apiFetch("/api/transactions");
+export interface TransactionsPage {
+  data: ApiTransaction[];
+  count: number;
+}
+
+export function fetchTransactions(
+  page = 0,
+  limit = 1000,
+): Promise<TransactionsPage> {
+  return apiFetch(`/api/transactions?page=${page}&limit=${limit}`);
 }
 
 export function createTransaction(
@@ -155,6 +163,51 @@ export function deleteSnapshotAccount(
   return apiFetch(`/api/snapshots/${snapshotId}/accounts/${accountId}`, {
     method: "DELETE",
   });
+}
+
+// ── Goals ─────────────────────────────────────────────────────
+
+export interface ApiGoal {
+  id: string;
+  type: string;
+  name: string;
+  targetAmount: number;
+  currentSavings: number;
+  weeklyContribution: number;
+  annualRate: number;
+  timeline: string;
+  durationYears?: number;
+  emergencyMonths?: number;
+  currentAge?: number;
+  retirementAge?: number;
+  desiredAnnualIncome?: number;
+  homePrice?: number;
+  debtInterestRate?: number;
+  createdAt: string;
+}
+
+export function fetchGoals(): Promise<ApiGoal[]> {
+  return apiFetch("/api/goals");
+}
+
+export function createGoal(
+  data: Omit<ApiGoal, "id" | "createdAt">,
+): Promise<ApiGoal> {
+  return apiFetch("/api/goals", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateGoal(id: string, data: Omit<ApiGoal, "id" | "createdAt">): Promise<ApiGoal> {
+  return apiFetch(`/api/goals/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteGoal(id: string): Promise<void> {
+  return apiFetch(`/api/goals/${id}`, { method: "DELETE" });
 }
 
 // ── Advisor ───────────────────────────────────────────────────

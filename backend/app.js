@@ -7,6 +7,7 @@ const transactionRoutes = require("./routes/transactions");
 const snapshotRoutes = require("./routes/snapshots");
 const chatRoutes = require("./routes/chat");
 const advisorRoutes = require("./routes/advisor");
+const goalRoutes = require("./routes/goals");
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.use("/api/transactions", auth, transactionRoutes);
 app.use("/api/snapshots", auth, snapshotRoutes);
 app.use("/api/chat", auth, chatRoutes);
 app.use("/api/advisor", auth, advisorRoutes);
+app.use("/api/goals", auth, goalRoutes);
 
 app.use(errorHandler);
 

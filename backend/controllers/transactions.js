@@ -2,14 +2,20 @@ const supabase = require("../config/supabase");
 
 exports.list = async (req, res, next) => {
   try {
-    const { data, error } = await supabase
+    const limit = Math.min(parseInt(req.query.limit) || 1000, 1000);
+    const page  = parseInt(req.query.page) || 0;
+    const from  = page * limit;
+    const to    = from + limit - 1;
+
+    const { data, count, error } = await supabase
       .from("transactions")
-      .select("*")
+      .select("*", { count: "exact" })
       .eq("user_id", req.user.id)
-      .order("date", { ascending: false });
+      .order("date", { ascending: false })
+      .range(from, to);
 
     if (error) throw error;
-    res.json(data);
+    res.json({ data, count });
   } catch (err) {
     next(err);
   }

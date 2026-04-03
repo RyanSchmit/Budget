@@ -9,7 +9,7 @@ import {
   clearSelectedIds,
   loadTransactionsSuccess,
 } from "../../lib/store/transactionsSlice";
-import { selectSelectedIdsSet } from "../../lib/store/selectors";
+import { selectSelectedIdsSet, selectBaselineById } from "../../lib/store/selectors";
 
 type Props = {
   reloadFromDb?: () => Promise<void>;
@@ -33,6 +33,7 @@ async function deleteTransactions(ids: string[]) {
 export default function DeleteSelectedButton({ reloadFromDb }: Props) {
   const dispatch = useAppDispatch();
   const selectedIds = useAppSelector(selectSelectedIdsSet);
+  const baseline = useAppSelector(selectBaselineById);
   const [deleting, setDeleting] = useState(false);
 
   const handleDeleteSelected = useCallback(async () => {
@@ -42,9 +43,14 @@ export default function DeleteSelectedButton({ reloadFromDb }: Props) {
     dispatch(removeTransactionsByIds(idsToDelete));
     dispatch(clearSelectedIds());
 
+    const savedIds = idsToDelete.filter((id) => id in baseline);
+
     try {
       setDeleting(true);
-      const result = await deleteTransactions(idsToDelete);
+      const result =
+        savedIds.length > 0
+          ? await deleteTransactions(savedIds)
+          : { success: true };
 
       if (!result.success) {
         console.error("Failed to delete transactions:", result.error);
@@ -66,7 +72,7 @@ export default function DeleteSelectedButton({ reloadFromDb }: Props) {
     } finally {
       setDeleting(false);
     }
-  }, [selectedIds, deleting, dispatch, reloadFromDb]);
+  }, [selectedIds, baseline, deleting, dispatch, reloadFromDb]);
 
   const disabled = selectedIds.size === 0 || deleting;
 
