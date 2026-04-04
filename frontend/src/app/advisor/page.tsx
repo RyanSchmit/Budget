@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Navbar from "@/app/Navbar";
-import Chat from "./Chat";
+import AdvisorGate from "./AdvisorGate";
 
 export const metadata = {
   title: "AI Advisor — WealthPath",
@@ -21,8 +21,14 @@ export default function AdvisorPage() {
           </div>
 
           <div className="flex-1 min-h-0 border border-gray-800 rounded-xl mx-4 mb-4 overflow-hidden flex flex-col">
-            <Suspense fallback={<div className="flex-1 flex items-center justify-center text-gray-500 text-sm">Loading...</div>}>
-              <Chat />
+            <Suspense
+              fallback={
+                <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
+                  Loading…
+                </div>
+              }
+            >
+              <AdvisorGate />
             </Suspense>
           </div>
         </div>

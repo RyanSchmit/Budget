@@ -5,13 +5,19 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSelector } from "react-redux";
 import type { User } from "@supabase/supabase-js";
+import type { RootState } from "@/lib/store/store";
 
 export default function Navbar() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
   const router = useRouter();
+
+  const advisorEnabled = useSelector(
+    (state: RootState) => state.preferences.preferences?.enable_ai_advisor ?? true,
+  );
 
   useEffect(() => {
     // Get initial session
@@ -79,12 +85,14 @@ export default function Navbar() {
                 >
                   Net Worth
                 </Link>
-                <Link
-                  href="/advisor"
-                  className="text-sm font-medium text-zinc-700 hover:text-black dark:text-zinc-300 dark:hover:text-zinc-50 px-3 py-1 rounded"
-                >
-                  AI Advisor
-                </Link>
+                {advisorEnabled && (
+                  <Link
+                    href="/advisor"
+                    className="text-sm font-medium text-zinc-700 hover:text-black dark:text-zinc-300 dark:hover:text-zinc-50 px-3 py-1 rounded"
+                  >
+                    AI Advisor
+                  </Link>
+                )}
               </nav>
             )}
 
@@ -93,9 +101,12 @@ export default function Navbar() {
                 <div className="text-sm text-zinc-400">Loading...</div>
               ) : user ? (
                 <div className="flex items-center gap-4">
-                  <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                  <Link
+                    href="/profile"
+                    className="text-sm text-zinc-600 dark:text-zinc-400 hover:text-black dark:hover:text-zinc-100 underline-offset-2 hover:underline"
+                  >
                     {user.email}
-                  </span>
+                  </Link>
                   <button
                     onClick={handleSignOut}
                     className="text-sm font-medium text-zinc-700 hover:text-black dark:text-zinc-300 dark:hover:text-zinc-50 px-3 py-1 rounded"

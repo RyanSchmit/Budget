@@ -25,26 +25,30 @@ async function ownConversation(conversationId, userId) {
 // ------------------------------------------------------------------
 // Helper: build the messages array for the OpenAI call, injecting
 // any linked net-worth snapshot as additional system context.
+// Pass allowDataAccess=false to strip financial data from the context.
 // ------------------------------------------------------------------
-async function buildChatMessages(conversationId) {
-  const { data: contextRows } = await supabase
-    .from("advisor_conversation_context")
-    .select("snapshot_id")
-    .eq("conversation_id", conversationId);
-
+async function buildChatMessages(conversationId, allowDataAccess = true) {
   let snapshotContext = "";
-  if (contextRows?.length) {
-    const snapshotIds = contextRows.map((r) => r.snapshot_id).filter(Boolean);
-    if (snapshotIds.length) {
-      const { data: snapshots } = await supabase
-        .from("net_worth_snapshots")
-        .select("*, net_worth_snapshot_accounts(*)")
-        .in("id", snapshotIds);
 
-      if (snapshots?.length) {
-        snapshotContext =
-          "\n\nThe user has linked the following net-worth snapshot(s) to this conversation:\n" +
-          JSON.stringify(snapshots, null, 2);
+  if (allowDataAccess) {
+    const { data: contextRows } = await supabase
+      .from("advisor_conversation_context")
+      .select("snapshot_id")
+      .eq("conversation_id", conversationId);
+
+    if (contextRows?.length) {
+      const snapshotIds = contextRows.map((r) => r.snapshot_id).filter(Boolean);
+      if (snapshotIds.length) {
+        const { data: snapshots } = await supabase
+          .from("net_worth_snapshots")
+          .select("*, net_worth_snapshot_accounts(*)")
+          .in("id", snapshotIds);
+
+        if (snapshots?.length) {
+          snapshotContext =
+            "\n\nThe user has linked the following net-worth snapshot(s) to this conversation:\n" +
+            JSON.stringify(snapshots, null, 2);
+        }
       }
     }
   }
@@ -245,6 +249,21 @@ async function sendMessage(req, res, next) {
       return res.status(400).json({ error: "content is required and must be a non-empty string" });
     }
 
+    // Check AI preference flags before doing any work
+    const { data: prefs } = await supabase
+      .from("user_ai_preferences")
+      .select("enable_ai_advisor, allow_ai_data_access")
+      .eq("user_id", req.user.id)
+      .maybeSingle();
+
+    // Default to enabled when no row exists (new users inherit opt-out defaults)
+    const advisorEnabled = prefs ? prefs.enable_ai_advisor : true;
+    const dataAccessAllowed = prefs ? prefs.allow_ai_data_access : true;
+
+    if (!advisorEnabled) {
+      return res.status(403).json({ error: "AI Advisor is disabled in your preferences." });
+    }
+
     if (!(await ownConversation(conversationId, req.user.id))) {
       return res.status(404).json({ error: "Conversation not found" });
     }
@@ -263,7 +282,7 @@ async function sendMessage(req, res, next) {
     if (userErr) throw userErr;
 
     // 2. Build full message history and call the model
-    const chatMessages = await buildChatMessages(conversationId);
+    const chatMessages = await buildChatMessages(conversationId, dataAccessAllowed);
 
     const completion = await openai.chat.completions.create({
       model: MODEL,

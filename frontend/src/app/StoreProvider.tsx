@@ -5,7 +5,9 @@ import { Provider } from "react-redux";
 import { store } from "../lib/store/store";
 import { initFromStorage } from "../lib/store/keywordsSlice";
 import { loadTransactionsSuccess } from "../lib/store/transactionsSlice";
+import { loadPreferences } from "../lib/store/preferencesSlice";
 import { loadTransactions } from "./transactions/loadTransactions";
+import { createClient } from "@/lib/supabase/client";
 
 export default function StoreProvider({
   children,
@@ -18,8 +20,15 @@ export default function StoreProvider({
     if (!initialized.current) {
       initialized.current = true;
       store.dispatch(initFromStorage());
-      loadTransactions().then((txs) => {
-        store.dispatch(loadTransactionsSuccess(txs));
+
+      const supabase = createClient();
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          loadTransactions().then((txs) => {
+            store.dispatch(loadTransactionsSuccess(txs));
+          });
+          store.dispatch(loadPreferences());
+        }
       });
     }
   }, []);
