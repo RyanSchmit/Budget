@@ -90,7 +90,7 @@ export interface ApiSnapshot {
   id: string;
   user_id?: string;
   snapshot_date: string;
-  accounts?: ApiSnapshotAccount[];
+  net_worth_snapshot_accounts?: ApiSnapshotAccount[];
   created_at?: string;
   updated_at?: string;
 }

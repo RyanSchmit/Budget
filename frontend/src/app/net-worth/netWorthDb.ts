@@ -46,7 +46,7 @@ export async function fetchLatestNetWorthSnapshot(): Promise<{
 
   const latest = snapshots[0];
 
-  const accounts: NetWorthAccountLine[] = (latest.accounts ?? []).map((a) => ({
+  const accounts: NetWorthAccountLine[] = (latest.net_worth_snapshot_accounts ?? []).map((a) => ({
     key: (a.account_key as "checking" | "credit_card") ?? undefined,
     name: a.account_name,
     amount: Number(a.amount),
