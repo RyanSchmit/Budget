@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import Navbar from "../Navbar";
 import CategoryPieChart from "../insights/PieChart";
 import SankeyDiagram from "../insights/SankeyDiagram";
-import CategoryStatsTable from "../insights/CategoryStatsTable";
+import CategoryBudgetManager from "../insights/CategoryBudgetManager";
 import { useAppSelector } from "../../lib/store/hooks";
 import {
   selectTransactions,
@@ -16,7 +16,7 @@ type PeriodOption = "3M" | "6M" | "YTD" | "ALL";
 
 export default function Home() {
   const [activeView, setActiveView] = useState<
-    "sankey" | "pie" | "category-stats"
+    "sankey" | "pie" | "budget-limits"
   >("pie");
 
   const transactions = useAppSelector(selectTransactions);
@@ -186,14 +186,14 @@ export default function Home() {
             </button>
 
             <button
-              onClick={() => setActiveView("category-stats")}
+              onClick={() => setActiveView("budget-limits")}
               className={`px-6 py-2 rounded-lg text-sm font-medium transition ${
-                activeView === "category-stats"
+                activeView === "budget-limits"
                   ? "bg-red-600 text-white"
                   : "bg-white/10 hover:bg-white/20 text-white/70"
               }`}
             >
-              Category Stats
+              Budget Limits
             </button>
           </div>
 
@@ -215,14 +215,14 @@ export default function Home() {
                 No transactions found for the selected period.
               </p>
             </div>
+          ) : activeView === "budget-limits" ? (
+            <CategoryBudgetManager transactions={transactions} />
           ) : !showFilters && transactions.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <p className="text-gray-400">No transactions found.</p>
             </div>
           ) : activeView === "sankey" ? (
             <SankeyDiagram transactions={filteredTransactions} />
-          ) : activeView === "category-stats" ? (
-            <CategoryStatsTable transactions={transactions} />
           ) : (
             <CategoryPieChart transactions={filteredTransactions} />
           )}

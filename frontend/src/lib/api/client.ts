@@ -210,6 +210,44 @@ export function deleteGoal(id: string): Promise<void> {
   return apiFetch(`/api/goals/${id}`, { method: "DELETE" });
 }
 
+// ── Category Limits ───────────────────────────────────────────
+
+export interface ApiCategoryLimit {
+  id: string;
+  categoryName: string;
+  monthlyLimit: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function fetchCategoryLimits(): Promise<ApiCategoryLimit[]> {
+  return apiFetch("/api/category-limits");
+}
+
+export function createCategoryLimit(data: {
+  categoryName: string;
+  monthlyLimit: number;
+}): Promise<ApiCategoryLimit> {
+  return apiFetch("/api/category-limits", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateCategoryLimit(
+  id: string,
+  data: { monthlyLimit: number },
+): Promise<ApiCategoryLimit> {
+  return apiFetch(`/api/category-limits/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteCategoryLimit(id: string): Promise<void> {
+  return apiFetch(`/api/category-limits/${id}`, { method: "DELETE" });
+}
+
 // ── Advisor ───────────────────────────────────────────────────
 
 export interface AdvisorConversation {
