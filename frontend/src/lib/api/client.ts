@@ -328,3 +328,33 @@ export function sendAdvisorMessage(
     body: JSON.stringify({ content }),
   });
 }
+
+// ── Keyword Rules ─────────────────────────────────────────────
+
+import type { Rule } from "@/app/types";
+
+export function fetchKeywordRules(): Promise<{ rules: Rule[] | null }> {
+  return apiFetch("/api/keyword-rules");
+}
+
+export function saveKeywordRules(rules: Rule[]): Promise<{ ok: boolean }> {
+  return apiFetch("/api/keyword-rules", {
+    method: "PUT",
+    body: JSON.stringify({ rules }),
+  });
+}
+
+// ── LLM Categorization ────────────────────────────────────────
+
+export function categorizeLlm(
+  items: Array<{ id: string; description: string }>,
+  categories: string[],
+): Promise<Array<{ id: string; category: string }>> {
+  return apiFetch<{ results: Array<{ id: string; category: string }> }>(
+    "/api/categorize",
+    {
+      method: "POST",
+      body: JSON.stringify({ items, categories }),
+    },
+  ).then((r) => r.results);
+}

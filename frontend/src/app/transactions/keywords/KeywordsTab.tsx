@@ -11,6 +11,8 @@ import {
   selectKeywordRules,
   selectKeywordRuleCategories,
 } from "../../../lib/store/selectors";
+import { saveKeywordRules } from "../../../lib/api/client";
+import { Rule } from "../../types";
 
 export default function KeywordsTab() {
   const dispatch = useAppDispatch();
@@ -26,16 +28,42 @@ export default function KeywordsTab() {
       ? rules
       : rules.filter((r) => r.category === categoryFilter);
 
+  const syncToBackend = (updatedRules: Rule[]) => {
+    saveKeywordRules(updatedRules).catch(() => {
+      // Ignore — localStorage already has the update as a fallback
+    });
+  };
+
   const handleAdd = () => {
     const kw = newKeyword.trim().toLowerCase();
     const cat = (newCategory.trim() || "N/A").replace(/\s+/g, " ").trim();
     if (!kw) return;
     dispatch(addKeyword({ category: cat, keyword: kw }));
     setNewKeyword("");
+    // Build optimistic updated rules to sync
+    const existing = rules.find((r) => r.category === cat);
+    const updated: Rule[] = existing
+      ? rules.map((r) =>
+          r.category === cat
+            ? { ...r, keywords: [...r.keywords, kw] }
+            : r,
+        )
+      : [...rules, { category: cat, keywords: [kw] }].sort((a, b) =>
+          a.category.localeCompare(b.category),
+        );
+    syncToBackend(updated);
   };
 
   const handleRemove = (category: string, keyword: string) => {
     dispatch(removeKeyword({ category, keyword }));
+    const updated = rules
+      .map((r) =>
+        r.category === category
+          ? { ...r, keywords: r.keywords.filter((k) => k.toLowerCase() !== keyword.toLowerCase()) }
+          : r,
+      )
+      .filter((r) => r.keywords.length > 0);
+    syncToBackend(updated);
   };
 
   const handleResetToDefaults = () => {
@@ -44,6 +72,8 @@ export default function KeywordsTab() {
       window.confirm("Reset all keywords to defaults? This cannot be undone.")
     ) {
       dispatch(resetToDefaults());
+      // Import defaults inline to avoid circular dep
+      import("./keywords").then(({ defaultKeyWords }) => syncToBackend(defaultKeyWords));
     }
   };
 
@@ -51,8 +81,8 @@ export default function KeywordsTab() {
     <div className="mt-4 space-y-6">
       <p className="text-sm text-gray-400">
         Keywords are used to auto-categorize transactions. Add or remove
-        keywords per category; changes are saved locally and used when you run
-        Predict.
+        keywords per category; changes are saved to your account and used when
+        you run Predict.
       </p>
 
       {/* Add keyword */}

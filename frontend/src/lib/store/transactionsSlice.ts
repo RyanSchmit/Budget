@@ -17,6 +17,7 @@ interface TransactionsState {
   selectedIds: string[];
   categoriesList: string[];
   loaded: boolean;
+  predictionScores: Record<string, number>;
 }
 
 const initialState: TransactionsState = {
@@ -26,6 +27,7 @@ const initialState: TransactionsState = {
   selectedIds: [],
   categoriesList: defaultCategories,
   loaded: false,
+  predictionScores: {},
 };
 
 const transactionsSlice = createSlice({
@@ -42,6 +44,7 @@ const transactionsSlice = createSlice({
       state.transactions = action.payload;
       state.selectedIds = [];
       state.loaded = true;
+      state.predictionScores = {};
       const next: Record<string, string> = {};
       for (const t of action.payload) {
         next[t.id] = fingerprintTransaction(t);
@@ -116,6 +119,15 @@ const transactionsSlice = createSlice({
     setCategoriesList(state, action: PayloadAction<string[]>) {
       state.categoriesList = action.payload;
     },
+    setPredictionScores(state, action: PayloadAction<Record<string, number>>) {
+      Object.assign(state.predictionScores, action.payload);
+    },
+    clearPredictionScore(state, action: PayloadAction<string>) {
+      delete state.predictionScores[action.payload];
+    },
+    clearAllPredictionScores(state) {
+      state.predictionScores = {};
+    },
   },
 });
 
@@ -132,6 +144,9 @@ export const {
   setSelectedIds,
   clearSelectedIds,
   setCategoriesList,
+  setPredictionScores,
+  clearPredictionScore,
+  clearAllPredictionScores,
 } = transactionsSlice.actions;
 
 export default transactionsSlice.reducer;

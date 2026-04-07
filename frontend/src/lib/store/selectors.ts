@@ -34,6 +34,9 @@ export const selectSelectedIds = (state: RootState) =>
 export const selectCategoriesList = (state: RootState) =>
   state.transactions.categoriesList;
 
+export const selectPredictionScores = (state: RootState) =>
+  state.transactions.predictionScores;
+
 export const selectTransactionsLoaded = (state: RootState) =>
   state.transactions.loaded;
 
