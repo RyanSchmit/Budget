@@ -10,6 +10,8 @@ const advisorRoutes = require("./routes/advisor");
 const goalRoutes = require("./routes/goals");
 const userRoutes = require("./routes/user");
 const categoryLimitRoutes = require("./routes/categoryLimits");
+const categorizeRoutes = require("./routes/categorize");
+const keywordRulesRoutes = require("./routes/keywordRules");
 
 const app = express();
 
@@ -26,6 +28,8 @@ app.use("/api/advisor", auth, advisorRoutes);
 app.use("/api/goals", auth, goalRoutes);
 app.use("/api/user", auth, userRoutes);
 app.use("/api/category-limits", auth, categoryLimitRoutes);
+app.use("/api/categorize", auth, categorizeRoutes);
+app.use("/api/keyword-rules", auth, keywordRulesRoutes);
 
 app.use(errorHandler);
 

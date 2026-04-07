@@ -12,12 +12,14 @@ import {
   selectMergedCategories,
   selectDirtyState,
   selectCategoriesList,
+  selectPredictionScores,
 } from "../../lib/store/selectors";
 import {
   toggleSelectId,
   setSelectedIds,
   updateTransaction,
   setCategoriesList,
+  clearPredictionScore,
 } from "../../lib/store/transactionsSlice";
 import { toggleSelectAllVisible } from "./filter";
 
@@ -26,7 +28,11 @@ interface SortConfig {
   direction: "asc" | "desc";
 }
 
-export default function TransactionsTable() {
+interface Props {
+  onCategoryChange?: (id: string, newCategory: string) => void;
+}
+
+export default function TransactionsTable({ onCategoryChange }: Props) {
   const dispatch = useAppDispatch();
   const transactions = useAppSelector(selectFilteredTransactions);
   const selectedIds = useAppSelector(selectSelectedIdsSet);
@@ -34,6 +40,7 @@ export default function TransactionsTable() {
   const categories = useAppSelector(selectMergedCategories);
   const categoriesList = useAppSelector(selectCategoriesList);
   const { dirtyIds } = useAppSelector(selectDirtyState);
+  const predictionScores = useAppSelector(selectPredictionScores);
 
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: null,
@@ -251,6 +258,8 @@ export default function TransactionsTable() {
                         }
 
                         dispatch(updateTransaction({ id: t.id, field: "category", value }));
+                        dispatch(clearPredictionScore(t.id));
+                        onCategoryChange?.(t.id, value);
                       }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter")
@@ -258,21 +267,40 @@ export default function TransactionsTable() {
                       }}
                     />
                   ) : (
-                    <select
-                      value={t.category}
-                      onChange={(e) => {
-                        dispatch(updateTransaction({ id: t.id, field: "category", value: e.target.value }));
-                      }}
-                      className="w-full bg-black border border-gray-700 rounded px-2 py-1 text-sm"
-                    >
-                      {categories.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
+                    <div className="flex items-center gap-1">
+                      {predictionScores[t.id] != null && (
+                        <span
+                          title={`Prediction confidence: ${Math.round(predictionScores[t.id] * 100)}%`}
+                          className={`flex-shrink-0 text-xs ${
+                            predictionScores[t.id] >= 0.5
+                              ? "text-green-500"
+                              : predictionScores[t.id] >= 0.3
+                              ? "text-yellow-500"
+                              : "text-red-500"
+                          }`}
+                        >
+                          ●
+                        </span>
+                      )}
+                      <select
+                        value={t.category}
+                        onChange={(e) => {
+                          const newCat = e.target.value;
+                          dispatch(updateTransaction({ id: t.id, field: "category", value: newCat }));
+                          dispatch(clearPredictionScore(t.id));
+                          onCategoryChange?.(t.id, newCat);
+                        }}
+                        className="w-full bg-black border border-gray-700 rounded px-2 py-1 text-sm"
+                      >
+                        {categories.map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
 
-                      <option value="__NEW__">+ Add new…</option>
-                    </select>
+                        <option value="__NEW__">+ Add new…</option>
+                      </select>
+                    </div>
                   )}
                 </td>
 
