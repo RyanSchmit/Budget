@@ -26,7 +26,7 @@ exports.getById = async (req, res, next) => {
     const { data, error } = await supabase
       .from("transactions")
       .select("*")
-      .eq("transaction_id", req.params.id)
+      .eq("transact_id", req.params.id)
       .eq("user_id", req.user.id)
       .single();
 
@@ -67,7 +67,7 @@ exports.update = async (req, res, next) => {
     const { data, error } = await supabase
       .from("transactions")
       .update({ date, description, category, amount, updated_at: new Date().toISOString() })
-      .eq("transaction_id", req.params.id)
+      .eq("transact_id", req.params.id)
       .eq("user_id", req.user.id)
       .select()
       .single();
@@ -87,7 +87,7 @@ exports.remove = async (req, res, next) => {
     const { data, error } = await supabase
       .from("transactions")
       .delete()
-      .eq("transaction_id", req.params.id)
+      .eq("transact_id", req.params.id)
       .eq("user_id", req.user.id)
       .select()
       .single();
