@@ -12,7 +12,7 @@ import {
 } from "../../lib/store/selectors";
 
 type FilterMode = "month" | "period";
-type PeriodOption = "3M" | "6M" | "YTD" | "ALL";
+type PeriodOption = "3M" | "6M" | "1Y" | "YTD" | "ALL";
 
 export default function Home() {
   const [activeView, setActiveView] = useState<
@@ -54,6 +54,12 @@ export default function Home() {
     let cutoff: Date;
     if (selectedPeriod === "YTD") {
       cutoff = new Date(now.getFullYear(), 0, 1);
+    } else if (selectedPeriod === "1Y") {
+      cutoff = new Date(
+        now.getFullYear() - 1,
+        now.getMonth(),
+        now.getDate(),
+      );
     } else {
       const months = selectedPeriod === "3M" ? 3 : 6;
       cutoff = new Date(
@@ -81,7 +87,7 @@ export default function Home() {
     "December",
   ];
 
-  const periodOptions: PeriodOption[] = ["3M", "6M", "YTD", "ALL"];
+  const periodOptions: PeriodOption[] = ["3M", "6M", "1Y", "YTD", "ALL"];
 
   const showFilters = activeView === "pie" || activeView === "sankey";
 
