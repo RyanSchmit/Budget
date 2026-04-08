@@ -1,4 +1,5 @@
 import type { Rule } from "../../types";
+import { normalizeDescription } from "../normalizeDescription";
 
 export function rulePredict(
   description: string,
@@ -6,7 +7,7 @@ export function rulePredict(
   rules: Rule[],
 ): string {
   void amount; // reserved for future use (e.g., income/expense-specific rules)
-  const text = String(description ?? "").toLowerCase();
+  const text = normalizeDescription(String(description ?? "")).toLowerCase();
   const effectiveRules = rules;
 
   for (const rule of effectiveRules) {

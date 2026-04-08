@@ -46,7 +46,6 @@ import {
   selectSelectedIds,
   selectKeywordRules,
 } from "../../lib/store/selectors";
-import { categorizeLlm } from "../../lib/api/client";
 
 export default function Transactions() {
   const dispatch = useAppDispatch();
@@ -78,7 +77,7 @@ export default function Transactions() {
 
   // Core prediction logic, extracted so it can be called from handlePredict
   // AND from handleCategoryChange (re-train on correction).
-  const runTfidfAndLlm = useCallback(
+  const runTfidf = useCallback(
     async (
       currentTransactions: Transaction[],
       targetIds: Set<string>,
@@ -98,6 +97,7 @@ export default function Transactions() {
           labeled.map((t) => ({
             description: t.description,
             category: t.category,
+            amount: t.amount,
           })),
         );
         if (model) modelCacheRef.current = { key: cacheKey, model };
@@ -112,7 +112,7 @@ export default function Transactions() {
           const c = (t.category ?? "").trim();
           return !c || c === "N/A";
         })
-        .map((t) => ({ transact_id: t.id, description: t.description }));
+        .map((t) => ({ transact_id: t.id, description: t.description, amount: t.amount }));
 
       if (remaining.length === 0) return currentTransactions;
 
@@ -188,40 +188,7 @@ export default function Transactions() {
         dispatch(setPredictionScores(scores));
       }
 
-      // Pass 3: LLM fallback for anything still N/A after TF-IDF
-      const stillNa = withTfidf
-        .filter((t) => targetIds.has(t.id))
-        .filter((t) => {
-          const c = (t.category ?? "").trim();
-          return !c || c === "N/A";
-        });
-
-      if (stillNa.length === 0) return withTfidf;
-
-      const knownCategories = [
-        ...new Set(withTfidf.map((t) => t.category).filter((c) => c && c !== "N/A")),
-      ].sort();
-
-      try {
-        const llmResults = await categorizeLlm(
-          stillNa.map((t) => ({ id: t.id, description: t.description })),
-          knownCategories,
-        );
-
-        const llmById = new Map(llmResults.map((r) => [r.id, r.category]));
-        const withLlm = withTfidf.map((t) => {
-          const cat = llmById.get(t.id);
-          if (!cat || cat === "N/A") return t;
-          const current = (t.category ?? "").trim();
-          if (current && current !== "N/A") return t;
-          return { ...t, category: cat };
-        });
-
-        return withLlm;
-      } catch {
-        // LLM unavailable — return TF-IDF results
-        return withTfidf;
-      }
+      return withTfidf;
     },
     [dispatch],
   );
@@ -251,7 +218,7 @@ export default function Transactions() {
     dispatch(setTransactions(afterKeyword));
 
     // Pass 2 + 3: TF-IDF then LLM
-    const final = await runTfidfAndLlm(afterKeyword, targetIds, minScore);
+    const final = await runTfidf(afterKeyword, targetIds, minScore);
     dispatch(setTransactions(final));
   }, [
     filteredTransactions,
@@ -259,7 +226,7 @@ export default function Transactions() {
     transactions,
     keywordRules,
     minScore,
-    runTfidfAndLlm,
+    runTfidf,
     dispatch,
   ]);
 
@@ -285,10 +252,10 @@ export default function Transactions() {
       // Invalidate model cache since training data just changed
       modelCacheRef.current = null;
 
-      const final = await runTfidfAndLlm(updated, naIds, minScore);
+      const final = await runTfidf(updated, naIds, minScore);
       dispatch(setTransactions(final));
     },
-    [transactions, minScore, runTfidfAndLlm, dispatch],
+    [transactions, minScore, runTfidf, dispatch],
   );
 
   return (
@@ -398,8 +365,8 @@ export default function Transactions() {
                         className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         title={
                           selectedIds.length > 0
-                            ? "Predict categories for selected rows (keywords → TF-IDF → AI)"
-                            : "Predict categories for all visible rows (keywords → TF-IDF → AI)"
+                            ? "Predict categories for selected rows (keywords → TF-IDF)"
+                            : "Predict categories for all visible rows (keywords → TF-IDF)"
                         }
                       >
                         Predict

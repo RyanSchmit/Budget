@@ -344,17 +344,3 @@ export function saveKeywordRules(rules: Rule[]): Promise<{ ok: boolean }> {
   });
 }
 
-// ── LLM Categorization ────────────────────────────────────────
-
-export function categorizeLlm(
-  items: Array<{ id: string; description: string }>,
-  categories: string[],
-): Promise<Array<{ id: string; category: string }>> {
-  return apiFetch<{ results: Array<{ id: string; category: string }> }>(
-    "/api/categorize",
-    {
-      method: "POST",
-      body: JSON.stringify({ items, categories }),
-    },
-  ).then((r) => r.results);
-}

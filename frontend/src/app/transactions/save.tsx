@@ -28,22 +28,30 @@ export default function SaveButton({
     try {
       setSaving(true);
 
-      await Promise.all(
-        transactions.map(async (t) => {
-          const body = {
-            date: t.date,
-            description: t.description,
-            category: t.category ?? "N/A",
-            amount: t.amount,
-          };
+      const BATCH_SIZE = 20;
+      for (let i = 0; i < transactions.length; i += BATCH_SIZE) {
+        const batch = transactions.slice(i, i + BATCH_SIZE);
+        await Promise.all(
+          batch.map(async (t) => {
+            const body = {
+              date: t.date,
+              description: t.description,
+              category: t.category ?? "N/A",
+              amount: t.amount,
+            };
 
-          try {
-            await updateTransaction(t.id, body);
-          } catch {
-            await createTransaction(body);
-          }
-        }),
-      );
+            try {
+              await updateTransaction(t.id, body);
+            } catch (err) {
+              if (err instanceof Error && err.message.startsWith("API 404")) {
+                await createTransaction(body);
+              } else {
+                throw err;
+              }
+            }
+          }),
+        );
+      }
 
       onSaved?.(transactions);
     } catch (err) {
