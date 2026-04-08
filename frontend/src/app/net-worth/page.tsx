@@ -205,11 +205,12 @@ export default function NetWorth() {
     }
   };
 
-  // 🔁 Work backwards from transactions
-  const workBackwards = () => {
+  // Auto-derive net worth history from transactions
+  useEffect(() => {
+    if (loading) return;
     const derived = deriveNetWorthHistory(transactions, netWorth);
     setDerivedHistory(derived);
-  };
+  }, [transactions, netWorth, loading]);
 
   function mergeHistories(
     saved: NetWorthHistoryItem[],
@@ -293,19 +294,6 @@ export default function NetWorth() {
               }`}
             >
               Save
-            </button>
-
-            <button
-              type="button"
-              onClick={workBackwards}
-              disabled={loading}
-              className={`px-4 py-2 bg-indigo-600 text-white rounded-md text-sm ${
-                loading
-                  ? "opacity-50 cursor-not-allowed"
-                  : "hover:bg-indigo-500"
-              }`}
-            >
-              {loading ? "Loading…" : "Work Backwards"}
             </button>
           </div>
         </div>
