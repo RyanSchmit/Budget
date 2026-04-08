@@ -81,6 +81,24 @@ export default function CategoryBudgetManager({
     [hiddenCategories],
   );
 
+  const categoryStats = useMemo(() => {
+    const stats: Record<string, { min: number; avg: number; max: number } | null> = {};
+    for (const category of TRACKED_CATEGORIES) {
+      const byMonth = getMonthlySpending(expenseTransactions, category);
+      const values = Object.values(byMonth);
+      if (values.length === 0) {
+        stats[category] = null;
+      } else {
+        stats[category] = {
+          min: Math.min(...values),
+          avg: values.reduce((a, b) => a + b, 0) / values.length,
+          max: Math.max(...values),
+        };
+      }
+    }
+    return stats;
+  }, [expenseTransactions]);
+
   const loadLimits = useCallback(async () => {
     try {
       setLoading(true);
@@ -206,8 +224,11 @@ export default function CategoryBudgetManager({
 
       <div className="rounded-lg border border-white/10 overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-[1fr_160px_120px_36px] gap-4 px-4 py-3 bg-white/5 border-b border-white/10 text-xs font-medium text-white/50 uppercase tracking-wider">
+        <div className="grid grid-cols-[1fr_72px_72px_72px_160px_120px_36px] gap-4 px-4 py-3 bg-white/5 border-b border-white/10 text-xs font-medium text-white/50 uppercase tracking-wider">
           <span>Category</span>
+          <span className="text-right">Min</span>
+          <span className="text-right">Avg</span>
+          <span className="text-right">Max</span>
           <span>Monthly Limit ($)</span>
           <span></span>
           <span></span>
@@ -230,10 +251,12 @@ export default function CategoryBudgetManager({
             inputVal !== "" &&
             (!saved || parseFloat(inputVal) !== saved.monthlyLimit);
 
+          const stats = categoryStats[category];
+
           return (
             <div key={category} className="border-b border-white/5 last:border-b-0">
               {/* Main row */}
-              <div className="grid grid-cols-[1fr_160px_120px_36px] gap-4 px-4 py-3 items-center hover:bg-white/5 transition">
+              <div className="grid grid-cols-[1fr_72px_72px_72px_160px_120px_36px] gap-4 px-4 py-3 items-center hover:bg-white/5 transition">
                 {/* Category name */}
                 <button
                   onClick={() => toggleExpand(category)}
@@ -251,6 +274,13 @@ export default function CategoryBudgetManager({
                     </span>
                   )}
                 </button>
+
+                {/* Stats */}
+                {(["min", "avg", "max"] as const).map((key) => (
+                  <span key={key} className="text-right tabular-nums text-sm text-white/50">
+                    {stats ? formatMoney(stats[key]) : <span className="text-white/20">—</span>}
+                  </span>
+                ))}
 
                 {/* Input */}
                 <input
