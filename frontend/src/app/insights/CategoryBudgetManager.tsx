@@ -99,6 +99,32 @@ export default function CategoryBudgetManager({
     return stats;
   }, [expenseTransactions]);
 
+  const overallStats = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const category of visibleCategories) {
+      const byMonth = getMonthlySpending(expenseTransactions, category);
+      for (const [month, amount] of Object.entries(byMonth)) {
+        totals[month] = (totals[month] ?? 0) + amount;
+      }
+    }
+    const values = Object.values(totals);
+    if (values.length === 0) return null;
+    return {
+      min: Math.min(...values),
+      avg: values.reduce((a, b) => a + b, 0) / values.length,
+      max: Math.max(...values),
+    };
+  }, [expenseTransactions, visibleCategories]);
+
+  const overallLimit = useMemo(
+    () =>
+      visibleCategories.reduce(
+        (sum, c) => sum + (savedLimits[c]?.monthlyLimit ?? 0),
+        0,
+      ),
+    [visibleCategories, savedLimits],
+  );
+
   const loadLimits = useCallback(async () => {
     try {
       setLoading(true);
@@ -396,6 +422,21 @@ export default function CategoryBudgetManager({
             </div>
           );
         })}
+
+        {/* Overall row */}
+        <div className="grid grid-cols-[1fr_72px_72px_72px_160px_120px_36px] gap-4 px-4 py-3 items-center bg-white/5 border-t border-white/10">
+          <span className="text-sm font-semibold text-white/70">Overall</span>
+          {(["min", "avg", "max"] as const).map((key) => (
+            <span key={key} className="text-right tabular-nums text-sm font-semibold text-white/70">
+              {overallStats ? formatMoney(overallStats[key]) : <span className="text-white/20">—</span>}
+            </span>
+          ))}
+          <span className="text-sm tabular-nums text-white/50">
+            {overallLimit > 0 ? formatMoney(overallLimit) + "/mo" : <span className="text-white/20">—</span>}
+          </span>
+          <span />
+          <span />
+        </div>
       </div>
 
       {hiddenCategories.size > 0 && (
