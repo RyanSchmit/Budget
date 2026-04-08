@@ -1,7 +1,7 @@
 "use client";
 
 import Navbar from "../Navbar";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
 import { Transaction } from "../types";
 import FileUI from "./csv";
 import LoadTransactionsClient from "./LoadTransactionsClient";
@@ -64,7 +64,7 @@ export default function Transactions() {
   const { dirtyTransactions } = useAppSelector(selectDirtyState);
   const keywordRules = useAppSelector(selectKeywordRules);
 
-  const [minScore, setMinScore] = useState(0.22);
+  const minScore = 0.22;
 
   // Cache the TF-IDF model in memory so we don't rebuild on every predict click
   // when training data hasn't changed.
@@ -302,19 +302,22 @@ export default function Transactions() {
           {activeTab === "transactions" ? (
             <>
               <div ref={selectionContainerRef}>
-                <FileUI
-                  pendingCount={uniquePendingTransactions.length}
-                  onParsed={(txs) => dispatch(setPendingTransactions(txs))}
-                  onAdd={() => dispatch(addPendingToTransactions())}
-                />
-
                 <LoadTransactionsClient
                   onLoaded={(txs: Transaction[]) => {
                     dispatch(loadTransactionsSuccess(txs));
                   }}
                 />
 
-                {/* Filter Bar + Save Button Row */}
+                {/* CSV upload */}
+                <div className="mt-4">
+                  <FileUI
+                    pendingCount={uniquePendingTransactions.length}
+                    onParsed={(txs) => dispatch(setPendingTransactions(txs))}
+                    onAdd={() => dispatch(addPendingToTransactions())}
+                  />
+                </div>
+
+                {/* Filter bar + action buttons — same row */}
                 <div className="mt-4 flex items-start justify-between gap-4">
                   <FilterBar
                     transactionsCount={transactions.length}
@@ -334,26 +337,6 @@ export default function Transactions() {
 
                   {transactions.length > 0 && (
                     <div className="flex-shrink-0 flex items-center gap-3">
-                      <div className="flex items-center gap-2">
-                        <label className="text-xs text-gray-400 whitespace-nowrap">
-                          Min confidence
-                        </label>
-                        <input
-                          type="number"
-                          min={0}
-                          max={1}
-                          step={0.01}
-                          value={minScore}
-                          onChange={(e) =>
-                            setMinScore(
-                              Math.max(0, Math.min(1, parseFloat(e.target.value) || 0)),
-                            )
-                          }
-                          className="w-16 rounded border border-gray-700 bg-black px-2 py-1 text-xs text-white"
-                          title="TF-IDF minimum similarity score (0–1). Lower = more predictions but less accurate."
-                        />
-                      </div>
-
                       <button
                         type="button"
                         onClick={handlePredict}

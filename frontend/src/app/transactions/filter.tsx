@@ -147,7 +147,7 @@ export function FilterBar({
   ];
 
   return (
-    <div className="flex items-center gap-4 mt-4 flex-wrap">
+    <div className="flex items-center gap-4 flex-wrap">
       {/* Search */}
       <input
         type="text"

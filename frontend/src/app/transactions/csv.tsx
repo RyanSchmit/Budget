@@ -88,10 +88,7 @@ export default function FileUI({ pendingCount, onParsed, onAdd }: FileUIProps) {
   };
 
   return (
-    <div>
-      <div className="mt-4 flex items-center gap-4">
-        <div className="mt-4 flex items-center justify-between gap-12 w-full">
-          <div className="flex items-center gap-6">
+    <div className="flex items-center gap-6">
             <label
               htmlFor="csvFile"
               className="cursor-pointer rounded-md bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/20"
@@ -119,9 +116,6 @@ export default function FileUI({ pendingCount, onParsed, onAdd }: FileUIProps) {
             {pendingCount > 0 && (
               <p className="text-sm text-gray-400">{pendingCount} ready</p>
             )}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
