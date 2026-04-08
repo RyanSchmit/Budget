@@ -9,6 +9,7 @@ import {
   fetchCategoryLimits,
   createCategoryLimit,
   updateCategoryLimit,
+  deleteCategoryLimit,
 } from "@/lib/api/client";
 
 interface CategoryBudgetManagerProps {
@@ -20,6 +21,21 @@ type SavedLimits = Record<string, { id: string; monthlyLimit: number }>;
 const TRACKED_CATEGORIES = defaultCategories.filter(
   (c) => c !== "Income" && c !== "N/A",
 );
+
+const HIDDEN_KEY = "budget-hidden-categories";
+
+function loadHiddenCategories(): Set<string> {
+  try {
+    const raw = localStorage.getItem(HIDDEN_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function saveHiddenCategories(hidden: Set<string>) {
+  localStorage.setItem(HIDDEN_KEY, JSON.stringify([...hidden]));
+}
 
 function getMonthlySpending(
   transactions: Transaction[],
@@ -48,12 +64,21 @@ export default function CategoryBudgetManager({
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [hiddenCategories, setHiddenCategories] = useState<Set<string>>(
+    () => loadHiddenCategories(),
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const expenseTransactions = useMemo(
     () => transactions.filter((t) => t.category !== "Income"),
     [transactions],
+  );
+
+  const visibleCategories = useMemo(
+    () => TRACKED_CATEGORIES.filter((c) => !hiddenCategories.has(c)),
+    [hiddenCategories],
   );
 
   const loadLimits = useCallback(async () => {
@@ -113,6 +138,52 @@ export default function CategoryBudgetManager({
     }
   };
 
+  const handleDelete = async (category: string) => {
+    const existing = savedLimits[category];
+    if (!existing) {
+      setHiddenCategories((prev) => {
+        const next = new Set(prev);
+        next.add(category);
+        saveHiddenCategories(next);
+        return next;
+      });
+      return;
+    }
+    setDeleting(category);
+    try {
+      await deleteCategoryLimit(existing.id);
+      setSavedLimits((prev) => {
+        const next = { ...prev };
+        delete next[category];
+        return next;
+      });
+      setInputValues((prev) => {
+        const next = { ...prev };
+        delete next[category];
+        return next;
+      });
+      setHiddenCategories((prev) => {
+        const next = new Set(prev);
+        next.add(category);
+        saveHiddenCategories(next);
+        return next;
+      });
+    } catch {
+      setError(`Failed to delete limit for ${category}.`);
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const handleRestore = (category: string) => {
+    setHiddenCategories((prev) => {
+      const next = new Set(prev);
+      next.delete(category);
+      saveHiddenCategories(next);
+      return next;
+    });
+  };
+
   const toggleExpand = (category: string) => {
     setExpandedCategory((prev) => (prev === category ? null : category));
   };
@@ -135,14 +206,15 @@ export default function CategoryBudgetManager({
 
       <div className="rounded-lg border border-white/10 overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-[1fr_160px_120px] gap-4 px-4 py-3 bg-white/5 border-b border-white/10 text-xs font-medium text-white/50 uppercase tracking-wider">
+        <div className="grid grid-cols-[1fr_160px_120px_36px] gap-4 px-4 py-3 bg-white/5 border-b border-white/10 text-xs font-medium text-white/50 uppercase tracking-wider">
           <span>Category</span>
           <span>Monthly Limit ($)</span>
+          <span></span>
           <span></span>
         </div>
 
         {/* Rows */}
-        {TRACKED_CATEGORIES.map((category) => {
+        {visibleCategories.map((category) => {
           const saved = savedLimits[category];
           const inputVal = inputValues[category] ?? "";
           const isSaving = saving === category;
@@ -161,7 +233,7 @@ export default function CategoryBudgetManager({
           return (
             <div key={category} className="border-b border-white/5 last:border-b-0">
               {/* Main row */}
-              <div className="grid grid-cols-[1fr_160px_120px] gap-4 px-4 py-3 items-center hover:bg-white/5 transition">
+              <div className="grid grid-cols-[1fr_160px_120px_36px] gap-4 px-4 py-3 items-center hover:bg-white/5 transition">
                 {/* Category name */}
                 <button
                   onClick={() => toggleExpand(category)}
@@ -213,6 +285,18 @@ export default function CategoryBudgetManager({
                 >
                   {isSaving ? "Saving…" : saved && !isDirty ? "Saved" : "Save"}
                 </button>
+
+                {/* Delete button */}
+                <div className="flex items-center justify-center">
+                  <button
+                    onClick={() => handleDelete(category)}
+                    disabled={deleting === category}
+                    title="Remove category"
+                    className="text-white/30 hover:text-red-400 transition disabled:opacity-30"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
 
               {/* Expanded monthly breakdown */}
@@ -283,6 +367,25 @@ export default function CategoryBudgetManager({
           );
         })}
       </div>
+
+      {hiddenCategories.size > 0 && (
+        <div className="mt-4">
+          <p className="text-xs text-white/40 uppercase tracking-wider mb-2">
+            Hidden categories
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {[...hiddenCategories].map((category) => (
+              <button
+                key={category}
+                onClick={() => handleRestore(category)}
+                className="px-3 py-1 rounded-full text-xs bg-white/5 border border-white/10 text-white/40 hover:text-white/70 hover:border-white/30 transition"
+              >
+                + {category}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
