@@ -96,6 +96,26 @@ const transactionsSlice = createSlice({
         (state.transactions[idx] as Record<string, unknown>)[field] = value;
       }
     },
+    replaceTransaction(
+      state,
+      action: PayloadAction<{ oldId: string; newTransaction: Transaction }>,
+    ) {
+      const { oldId, newTransaction } = action.payload;
+      const idx = state.transactions.findIndex((t) => t.id === oldId);
+      if (idx !== -1) {
+        state.transactions[idx] = newTransaction;
+      }
+      // Update baseline: remove old key, add new
+      if (state.baselineById[oldId] !== undefined) {
+        delete state.baselineById[oldId];
+      }
+      state.baselineById[newTransaction.id] = fingerprintTransaction(newTransaction);
+      // Update selection if needed
+      const selIdx = state.selectedIds.indexOf(oldId);
+      if (selIdx !== -1) {
+        state.selectedIds[selIdx] = newTransaction.id;
+      }
+    },
     removeTransactionsByIds(state, action: PayloadAction<string[]>) {
       const ids = new Set(action.payload);
       state.transactions = state.transactions.filter((t) => !ids.has(t.id));
@@ -139,6 +159,7 @@ export const {
   updateBaselineForSaved,
   addPendingToTransactions,
   updateTransaction,
+  replaceTransaction,
   removeTransactionsByIds,
   toggleSelectId,
   setSelectedIds,

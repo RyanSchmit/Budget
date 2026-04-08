@@ -21,6 +21,7 @@ import {
   addPendingToTransactions,
   updateTransaction,
   updateBaselineForSaved,
+  replaceTransaction,
   setTransactions,
   setPredictionScores,
 } from "../../lib/store/transactionsSlice";
@@ -360,6 +361,9 @@ export default function Transactions() {
                         onSaved={(saved) => {
                           if (!saved.length) return;
                           dispatch(updateBaselineForSaved(saved));
+                        }}
+                        onCreated={(oldId, newTransaction) => {
+                          dispatch(replaceTransaction({ oldId, newTransaction }));
                         }}
                       />
 

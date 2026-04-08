@@ -10,9 +10,11 @@ import { useMemo, useState } from "react";
 export default function SaveButton({
   transactions,
   onSaved,
+  onCreated,
 }: {
   transactions: Transaction[];
   onSaved?: (saved: Transaction[]) => void;
+  onCreated?: (oldId: string, newTransaction: Transaction) => void;
 }) {
   const [saving, setSaving] = useState(false);
 
@@ -44,7 +46,14 @@ export default function SaveButton({
               await updateTransaction(t.id, body);
             } catch (err) {
               if (err instanceof Error && err.message.startsWith("API 404")) {
-                await createTransaction(body);
+                const created = await createTransaction(body);
+                onCreated?.(t.id, {
+                  id: created.transact_id,
+                  date: created.date,
+                  description: created.description,
+                  category: created.category,
+                  amount: created.amount,
+                });
               } else {
                 throw err;
               }
