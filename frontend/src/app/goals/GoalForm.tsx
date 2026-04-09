@@ -28,7 +28,6 @@ export default function GoalForm({ initial, onSave, onCancel }: GoalFormProps) {
     const expenses = transactions
       .filter((t) => t.category !== "Income")
       .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-    if (income === 0) return null;
     // Estimate months of data from date range
     const dates = transactions.map((t) => new Date(t.date).getTime());
     const minDate = Math.min(...dates);
@@ -37,8 +36,7 @@ export default function GoalForm({ initial, onSave, onCancel }: GoalFormProps) {
     const monthlyIncome = income / months;
     const monthlyExpenses = expenses / months;
     const monthlySavings = monthlyIncome - monthlyExpenses;
-    if (monthlySavings <= 0) return null;
-    const weeklySavings = monthlySavings / 4.33;
+    const weeklySavings = monthlySavings > 0 ? monthlySavings / 4.33 : null;
     return { monthlySavings, weeklySavings, monthlyExpenses };
   })();
 
@@ -50,9 +48,9 @@ export default function GoalForm({ initial, onSave, onCancel }: GoalFormProps) {
   const [targetAmount, setTargetAmount] = useState<number | null>(initial?.targetAmount ?? null);
   const [currentSavings, setCurrentSavings] = useState<number | null>(initial?.currentSavings ?? 0);
   const [weeklyContribution, setWeeklyContribution] = useState<number | null>(
-    initial?.weeklyContribution ?? (spendingSuggestion ? Math.round(spendingSuggestion.weeklySavings) : null)
+    initial?.weeklyContribution ?? (spendingSuggestion?.weeklySavings ? Math.round(spendingSuggestion.weeklySavings) : null)
   );
-  const [annualRate, setAnnualRate] = useState(initial?.annualRate ?? 5);
+  const [annualRate, setAnnualRate] = useState<number | string>(initial?.annualRate ?? 5);
   const [timeline, setTimeline] = useState<TimelineType>(initial?.timeline ?? "flexible");
   const [durationYears, setDurationYears] = useState<string>(initial?.durationYears?.toString() ?? "");
 
@@ -118,7 +116,7 @@ export default function GoalForm({ initial, onSave, onCancel }: GoalFormProps) {
       targetAmount,
       currentSavings: currentSavings ?? 0,
       weeklyContribution: weeklyContribution ?? 0,
-      annualRate,
+      annualRate: Number(annualRate) || 0,
       timeline,
       durationYears: timeline === "duration" ? parseFloat(durationYears) || undefined : undefined,
       createdAt: initial?.createdAt ?? new Date().toISOString(),
@@ -375,7 +373,7 @@ export default function GoalForm({ initial, onSave, onCancel }: GoalFormProps) {
             min="0"
             max="30"
             value={annualRate}
-            onChange={(e) => setAnnualRate(Number(e.target.value))}
+            onChange={(e) => setAnnualRate(e.target.value)}
             className="h-10 w-full rounded-md border border-gray-700 bg-black px-3 text-white"
           />
         </div>

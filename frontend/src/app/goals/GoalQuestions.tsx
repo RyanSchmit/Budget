@@ -8,8 +8,13 @@ import GoalCard from "./GoalCard";
 import GoalForm from "./GoalForm";
 import { formatMoney } from "@/app/format";
 import { calculateTimeToGoal } from "./goalCalculate";
+import LoadTransactionsClient from "@/app/transactions/LoadTransactionsClient";
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import { loadTransactionsSuccess } from "@/lib/store/transactionsSlice";
+import { Transaction } from "@/app/types";
 
 export default function GoalQuestions() {
+  const dispatch = useAppDispatch();
   const { goals, loaded, addGoal, updateGoal, removeGoal } = useGoals();
   const [showForm, setShowForm] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
@@ -64,6 +69,9 @@ export default function GoalQuestions() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
+      <LoadTransactionsClient
+        onLoaded={(txs: Transaction[]) => dispatch(loadTransactionsSuccess(txs))}
+      />
       <Navbar />
 
       <div className="mx-auto max-w-5xl px-4 pt-20 pb-20">
