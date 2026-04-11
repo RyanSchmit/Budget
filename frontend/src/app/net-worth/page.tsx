@@ -44,7 +44,6 @@ export default function NetWorth() {
     };
 
     fetchTransactions();
-    console.log(transactions);
   }, []);
 
   // Load most recent saved net worth snapshot (accounts + amounts)

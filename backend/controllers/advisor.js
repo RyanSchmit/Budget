@@ -23,6 +23,21 @@ async function ownConversation(conversationId, userId) {
 }
 
 // ------------------------------------------------------------------
+// Helper: verify the snapshot belongs to the requesting user
+// ------------------------------------------------------------------
+async function ownSnapshot(snapshotId, userId) {
+  const { data, error } = await supabase
+    .from("net_worth_snapshots")
+    .select("id")
+    .eq("id", snapshotId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data !== null;
+}
+
+// ------------------------------------------------------------------
 // Helper: build the messages array for the OpenAI call, injecting
 // any linked net-worth snapshot as additional system context.
 // Pass allowDataAccess=false to strip financial data from the context.
@@ -102,6 +117,10 @@ async function createConversation(req, res, next) {
     if (convErr) throw convErr;
 
     if (snapshot_id) {
+      if (!(await ownSnapshot(snapshot_id, req.user.id))) {
+        return res.status(404).json({ error: "Snapshot not found" });
+      }
+
       const { error: ctxErr } = await supabase
         .from("advisor_conversation_context")
         .insert({ conversation_id: conversation.id, snapshot_id });
@@ -361,6 +380,10 @@ async function addContext(req, res, next) {
 
     if (!(await ownConversation(conversationId, req.user.id))) {
       return res.status(404).json({ error: "Conversation not found" });
+    }
+
+    if (!(await ownSnapshot(snapshot_id, req.user.id))) {
+      return res.status(404).json({ error: "Snapshot not found" });
     }
 
     const { data, error } = await supabase
