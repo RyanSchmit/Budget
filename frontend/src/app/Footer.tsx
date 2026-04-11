@@ -40,14 +40,6 @@ export default function Footer() {
                   Rent vs Buy Calculator
                 </Link>
               </li>
-              <li>
-                <Link
-                  href="/calculators/bonds-vs-stocks"
-                  className="text-sm text-zinc-600 hover:text-black dark:text-zinc-400 dark:hover:text-white"
-                >
-                  Bonds vs. Stocks Simulator
-                </Link>
-              </li>
             </ul>
           </div>
 
