@@ -1,9 +1,45 @@
 const supabase = require("../config/supabase");
+const {
+  requireString,
+  requireNumber,
+  optionalNumber,
+  requireEnum,
+  validate,
+} = require("../utils/validation");
+
+const VALID_GOAL_TYPES = [
+  "emergency_fund",
+  "retirement",
+  "home_down_payment",
+  "debt_payoff",
+  "custom",
+];
+const VALID_TIMELINES = ["flexible", "duration"];
+
+function validateGoalBody(res, body) {
+  return validate(res, [
+    requireString(body.type, "type"),
+    requireEnum(body.type, "type", VALID_GOAL_TYPES),
+    requireString(body.name, "name", { maxLength: 200 }),
+    requireNumber(body.targetAmount, "targetAmount", { min: 0 }),
+    requireNumber(body.currentSavings, "currentSavings", { min: 0 }),
+    requireNumber(body.weeklyContribution, "weeklyContribution", { min: 0 }),
+    requireNumber(body.annualRate, "annualRate", { min: 0, max: 100 }),
+    requireEnum(body.timeline, "timeline", VALID_TIMELINES),
+    optionalNumber(body.durationYears, "durationYears", { min: 0, max: 100 }),
+    optionalNumber(body.emergencyMonths, "emergencyMonths", { min: 0, max: 120 }),
+    optionalNumber(body.currentAge, "currentAge", { min: 0, max: 150 }),
+    optionalNumber(body.retirementAge, "retirementAge", { min: 0, max: 150 }),
+    optionalNumber(body.desiredAnnualIncome, "desiredAnnualIncome", { min: 0 }),
+    optionalNumber(body.homePrice, "homePrice", { min: 0 }),
+    optionalNumber(body.debtInterestRate, "debtInterestRate", { min: 0, max: 100 }),
+  ]);
+}
 
 function toRow(goal) {
   return {
     type: goal.type,
-    name: goal.name,
+    name: goal.name.trim(),
     target_amount: goal.targetAmount,
     current_savings: goal.currentSavings,
     weekly_contribution: goal.weeklyContribution,
@@ -57,10 +93,7 @@ exports.list = async (req, res, next) => {
 
 exports.create = async (req, res, next) => {
   try {
-    const { type, name, targetAmount } = req.body;
-    if (!type || !name || targetAmount == null) {
-      return res.status(400).json({ error: "type, name, and targetAmount are required" });
-    }
+    if (validateGoalBody(res, req.body)) return;
 
     const { data, error } = await supabase
       .from("goals")
@@ -77,6 +110,8 @@ exports.create = async (req, res, next) => {
 
 exports.update = async (req, res, next) => {
   try {
+    if (validateGoalBody(res, req.body)) return;
+
     const { data, error } = await supabase
       .from("goals")
       .update({ ...toRow(req.body), updated_at: new Date().toISOString() })

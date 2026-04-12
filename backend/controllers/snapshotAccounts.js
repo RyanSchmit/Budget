@@ -1,4 +1,13 @@
 const supabase = require("../config/supabase");
+const {
+  requireString,
+  requireNumber,
+  optionalNumber,
+  requireEnum,
+  validate,
+} = require("../utils/validation");
+
+const VALID_ACCOUNT_TYPES = ["asset", "liability"];
 
 exports.list = async (req, res, next) => {
   try {
@@ -39,17 +48,21 @@ exports.getById = async (req, res, next) => {
 exports.create = async (req, res, next) => {
   try {
     const { account_key, account_name, amount, account_type, sort_order } = req.body;
-    if (!account_key || !account_name || amount == null || !account_type) {
-      return res.status(400).json({ error: "account_key, account_name, amount, and account_type are required" });
-    }
+    if (validate(res, [
+      requireString(account_key, "account_key", { maxLength: 200 }),
+      requireString(account_name, "account_name", { maxLength: 200 }),
+      requireNumber(amount, "amount"),
+      requireEnum(account_type, "account_type", VALID_ACCOUNT_TYPES),
+      optionalNumber(sort_order, "sort_order", { min: 0 }),
+    ])) return;
 
     const { data, error } = await supabase
       .from("net_worth_snapshot_accounts")
       .insert({
         snapshot_id: req.params.snapshotId,
         user_id: req.user.id,
-        account_key,
-        account_name,
+        account_key: account_key.trim(),
+        account_name: account_name.trim(),
         amount,
         account_type,
         sort_order: sort_order ?? 0,
@@ -67,10 +80,17 @@ exports.create = async (req, res, next) => {
 exports.update = async (req, res, next) => {
   try {
     const { account_key, account_name, amount, account_type, sort_order } = req.body;
+    if (validate(res, [
+      requireString(account_key, "account_key", { maxLength: 200 }),
+      requireString(account_name, "account_name", { maxLength: 200 }),
+      requireNumber(amount, "amount"),
+      requireEnum(account_type, "account_type", VALID_ACCOUNT_TYPES),
+      optionalNumber(sort_order, "sort_order", { min: 0 }),
+    ])) return;
 
     const { data, error } = await supabase
       .from("net_worth_snapshot_accounts")
-      .update({ account_key, account_name, amount, account_type, sort_order })
+      .update({ account_key: account_key.trim(), account_name: account_name.trim(), amount, account_type, sort_order })
       .eq("id", req.params.id)
       .eq("snapshot_id", req.params.snapshotId)
       .eq("user_id", req.user.id)

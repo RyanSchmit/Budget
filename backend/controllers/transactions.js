@@ -1,9 +1,15 @@
 const supabase = require("../config/supabase");
+const {
+  requireString,
+  requireNumber,
+  requireDate,
+  parsePagination,
+  validate,
+} = require("../utils/validation");
 
 exports.list = async (req, res, next) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit) || 1000, 1000);
-    const page  = parseInt(req.query.page) || 0;
+    const { limit, page } = parsePagination(req.query, { defaultLimit: 1000, maxLimit: 1000 });
     const from  = page * limit;
     const to    = from + limit - 1;
 
@@ -43,13 +49,16 @@ exports.getById = async (req, res, next) => {
 exports.create = async (req, res, next) => {
   try {
     const { date, description, category, amount } = req.body;
-    if (!date || !description || !category || amount == null) {
-      return res.status(400).json({ error: "date, description, category, and amount are required" });
-    }
+    if (validate(res, [
+      requireDate(date, "date"),
+      requireString(description, "description", { maxLength: 500 }),
+      requireString(category, "category", { maxLength: 100 }),
+      requireNumber(amount, "amount"),
+    ])) return;
 
     const { data, error } = await supabase
       .from("transactions")
-      .insert({ user_id: req.user.id, date, description, category, amount })
+      .insert({ user_id: req.user.id, date, description: description.trim(), category: category.trim(), amount })
       .select()
       .single();
 
@@ -63,10 +72,16 @@ exports.create = async (req, res, next) => {
 exports.update = async (req, res, next) => {
   try {
     const { date, description, category, amount } = req.body;
+    if (validate(res, [
+      requireDate(date, "date"),
+      requireString(description, "description", { maxLength: 500 }),
+      requireString(category, "category", { maxLength: 100 }),
+      requireNumber(amount, "amount"),
+    ])) return;
 
     const { data, error } = await supabase
       .from("transactions")
-      .update({ date, description, category, amount, updated_at: new Date().toISOString() })
+      .update({ date, description: description.trim(), category: category.trim(), amount, updated_at: new Date().toISOString() })
       .eq("transact_id", req.params.id)
       .eq("user_id", req.user.id)
       .select()
