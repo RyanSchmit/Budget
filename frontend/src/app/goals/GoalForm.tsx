@@ -100,7 +100,7 @@ export default function GoalForm({ initial, onSave, onCancel }: GoalFormProps) {
 
   // Pre-fill weekly contribution suggestion when switching type
   useEffect(() => {
-    if (!initial && spendingSuggestion && weeklyContribution === null) {
+    if (!initial && spendingSuggestion?.weeklySavings != null && weeklyContribution === null) {
       setWeeklyContribution(Math.round(spendingSuggestion.weeklySavings));
     }
   }, [spendingSuggestion, initial, weeklyContribution]);
