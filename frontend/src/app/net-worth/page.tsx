@@ -193,6 +193,7 @@ export default function NetWorth() {
 
       await saveNetWorthSnapshot({ date, accounts: lines });
 
+      setSnapshotDate(date);
       setSavedHistory((prev) => {
         const existing = prev.find((h) => h.date === date);
         if (existing && existing.value === netWorth) return prev;

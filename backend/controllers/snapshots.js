@@ -41,13 +41,26 @@ exports.create = async (req, res, next) => {
       return res.status(400).json({ error: "snapshot_date and a non-empty accounts array are required" });
     }
 
+    // Upsert the snapshot row — if one already exists for this user+date, update it
     const { data: snapshot, error: snapError } = await supabase
       .from("net_worth_snapshots")
-      .insert({ user_id: req.user.id, snapshot_date })
+      .upsert(
+        { user_id: req.user.id, snapshot_date, updated_at: new Date().toISOString() },
+        { onConflict: "user_id,snapshot_date" }
+      )
       .select()
       .single();
 
     if (snapError) throw snapError;
+
+    // Replace all accounts for this snapshot
+    const { error: delError } = await supabase
+      .from("net_worth_snapshot_accounts")
+      .delete()
+      .eq("snapshot_id", snapshot.id)
+      .eq("user_id", req.user.id);
+
+    if (delError) throw delError;
 
     const accountRows = accounts.map((a) => ({
       snapshot_id: snapshot.id,
