@@ -2,7 +2,7 @@
 
 import { Transaction } from "../types";
 import {
-  updateTransaction,
+  bulkUpdateTransactions,
   bulkCreateTransactions,
 } from "../../lib/api/client";
 import { useMemo, useState } from "react";
@@ -44,19 +44,18 @@ export default function SaveButton({
         }
       }
 
-      // Update existing transactions in batches
-      const UPDATE_BATCH = 20;
+      // Bulk-update existing transactions in batches of 200
+      const UPDATE_BATCH = 200;
       for (let i = 0; i < toUpdate.length; i += UPDATE_BATCH) {
         const batch = toUpdate.slice(i, i + UPDATE_BATCH);
-        await Promise.all(
-          batch.map((t) =>
-            updateTransaction(t.id, {
-              date: t.date,
-              description: t.description,
-              category: t.category ?? "N/A",
-              amount: t.amount,
-            }),
-          ),
+        await bulkUpdateTransactions(
+          batch.map((t) => ({
+            id: t.id,
+            date: t.date,
+            description: t.description,
+            category: t.category ?? "N/A",
+            amount: t.amount,
+          })),
         );
       }
 

@@ -97,6 +97,74 @@ exports.update = async (req, res, next) => {
   }
 };
 
+exports.bulkUpdate = async (req, res, next) => {
+  try {
+    const { transactions } = req.body;
+
+    if (!Array.isArray(transactions) || transactions.length === 0) {
+      return res.status(400).json({ error: "transactions must be a non-empty array" });
+    }
+    if (transactions.length > 200) {
+      return res.status(400).json({ error: "Maximum 200 transactions per request" });
+    }
+
+    const errors = [];
+    const validated = [];
+
+    for (let i = 0; i < transactions.length; i++) {
+      const { id, date, description, category, amount } = transactions[i];
+      if (!id || typeof id !== "string") {
+        errors.push({ index: i, errors: ["id is required"] });
+        continue;
+      }
+      const itemErrors = [
+        requireDate(date, "date"),
+        requireString(description, "description", { maxLength: 500 }),
+        requireString(category, "category", { maxLength: 100 }),
+        requireNumber(amount, "amount"),
+      ].filter(Boolean);
+
+      if (itemErrors.length > 0) {
+        errors.push({ index: i, errors: itemErrors });
+      } else {
+        validated.push({ id, date, description: description.trim(), category: category.trim(), amount });
+      }
+    }
+
+    if (errors.length > 0) {
+      return res.status(400).json({ error: "Validation failed", details: errors });
+    }
+
+    const now = new Date().toISOString();
+    const results = await Promise.all(
+      validated.map((t) =>
+        supabase
+          .from("transactions")
+          .update({ date: t.date, description: t.description, category: t.category, amount: t.amount, updated_at: now })
+          .eq("transact_id", t.id)
+          .eq("user_id", req.user.id)
+          .select()
+          .single()
+      ),
+    );
+
+    const failed = results
+      .map((r, i) => (r.error ? { index: i, id: validated[i].id, error: r.error.message } : null))
+      .filter(Boolean);
+
+    if (failed.length > 0) {
+      return res.status(207).json({
+        data: results.filter((r) => !r.error).map((r) => r.data),
+        errors: failed,
+      });
+    }
+
+    res.json({ data: results.map((r) => r.data) });
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.bulkCreate = async (req, res, next) => {
   try {
     const { transactions } = req.body;

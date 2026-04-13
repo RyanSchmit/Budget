@@ -60,6 +60,15 @@ export function createTransaction(
   });
 }
 
+export function bulkUpdateTransactions(
+  transactions: (Pick<ApiTransaction, "date" | "description" | "category" | "amount"> & { id: string })[],
+): Promise<{ data: ApiTransaction[] }> {
+  return apiFetch("/api/transactions/bulk", {
+    method: "PUT",
+    body: JSON.stringify({ transactions }),
+  });
+}
+
 export function bulkCreateTransactions(
   transactions: Pick<ApiTransaction, "date" | "description" | "category" | "amount">[],
 ): Promise<{ data: ApiTransaction[] }> {
