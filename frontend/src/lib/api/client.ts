@@ -60,6 +60,15 @@ export function createTransaction(
   });
 }
 
+export function bulkCreateTransactions(
+  transactions: Pick<ApiTransaction, "date" | "description" | "category" | "amount">[],
+): Promise<{ data: ApiTransaction[] }> {
+  return apiFetch("/api/transactions/bulk", {
+    method: "POST",
+    body: JSON.stringify({ transactions }),
+  });
+}
+
 export function updateTransaction(
   id: string,
   data: Partial<Pick<ApiTransaction, "date" | "description" | "category" | "amount">>,

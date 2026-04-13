@@ -97,6 +97,58 @@ exports.update = async (req, res, next) => {
   }
 };
 
+exports.bulkCreate = async (req, res, next) => {
+  try {
+    const { transactions } = req.body;
+
+    if (!Array.isArray(transactions) || transactions.length === 0) {
+      return res.status(400).json({ error: "transactions must be a non-empty array" });
+    }
+    if (transactions.length > 200) {
+      return res.status(400).json({ error: "Maximum 200 transactions per request" });
+    }
+
+    const errors = [];
+    const rows = [];
+
+    for (let i = 0; i < transactions.length; i++) {
+      const { date, description, category, amount } = transactions[i];
+      const itemErrors = [
+        requireDate(date, "date"),
+        requireString(description, "description", { maxLength: 500 }),
+        requireString(category, "category", { maxLength: 100 }),
+        requireNumber(amount, "amount"),
+      ].filter(Boolean);
+
+      if (itemErrors.length > 0) {
+        errors.push({ index: i, errors: itemErrors });
+      } else {
+        rows.push({
+          user_id: req.user.id,
+          date,
+          description: description.trim(),
+          category: category.trim(),
+          amount,
+        });
+      }
+    }
+
+    if (errors.length > 0) {
+      return res.status(400).json({ error: "Validation failed", details: errors });
+    }
+
+    const { data, error } = await supabase
+      .from("transactions")
+      .insert(rows)
+      .select();
+
+    if (error) throw error;
+    res.status(201).json({ data });
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.remove = async (req, res, next) => {
   try {
     const { data, error } = await supabase

@@ -2,10 +2,18 @@
 
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 
 export default function SignIn() {
+  return (
+    <Suspense>
+      <SignInContent />
+    </Suspense>
+  )
+}
+
+function SignInContent() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)

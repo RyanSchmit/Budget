@@ -3,16 +3,18 @@
 import { Transaction } from "../types";
 import {
   updateTransaction,
-  createTransaction,
+  bulkCreateTransactions,
 } from "../../lib/api/client";
 import { useMemo, useState } from "react";
 
 export default function SaveButton({
   transactions,
+  baselineById,
   onSaved,
   onCreated,
 }: {
   transactions: Transaction[];
+  baselineById: Record<string, string>;
   onSaved?: (saved: Transaction[]) => void;
   onCreated?: (oldId: string, newTransaction: Transaction) => void;
 }) {
@@ -30,36 +32,55 @@ export default function SaveButton({
     try {
       setSaving(true);
 
-      const BATCH_SIZE = 20;
-      for (let i = 0; i < transactions.length; i += BATCH_SIZE) {
-        const batch = transactions.slice(i, i + BATCH_SIZE);
+      // Split into existing (update) vs new (bulk create) based on baseline
+      const toUpdate: Transaction[] = [];
+      const toCreate: Transaction[] = [];
+
+      for (const t of transactions) {
+        if (baselineById[t.id]) {
+          toUpdate.push(t);
+        } else {
+          toCreate.push(t);
+        }
+      }
+
+      // Update existing transactions in batches
+      const UPDATE_BATCH = 20;
+      for (let i = 0; i < toUpdate.length; i += UPDATE_BATCH) {
+        const batch = toUpdate.slice(i, i + UPDATE_BATCH);
         await Promise.all(
-          batch.map(async (t) => {
-            const body = {
+          batch.map((t) =>
+            updateTransaction(t.id, {
               date: t.date,
               description: t.description,
               category: t.category ?? "N/A",
               amount: t.amount,
-            };
-
-            try {
-              await updateTransaction(t.id, body);
-            } catch (err) {
-              if (err instanceof Error && err.message.startsWith("API 404")) {
-                const created = await createTransaction(body);
-                onCreated?.(t.id, {
-                  id: created.transact_id,
-                  date: created.date,
-                  description: created.description,
-                  category: created.category,
-                  amount: created.amount,
-                });
-              } else {
-                throw err;
-              }
-            }
-          }),
+            }),
+          ),
         );
+      }
+
+      // Bulk-create new transactions in batches of 200
+      const BULK_BATCH = 200;
+      for (let i = 0; i < toCreate.length; i += BULK_BATCH) {
+        const batch = toCreate.slice(i, i + BULK_BATCH);
+        const { data: created } = await bulkCreateTransactions(
+          batch.map((t) => ({
+            date: t.date,
+            description: t.description,
+            category: t.category ?? "N/A",
+            amount: t.amount,
+          })),
+        );
+        created.forEach((record, idx) => {
+          onCreated?.(batch[idx].id, {
+            id: record.transact_id,
+            date: record.date,
+            description: record.description,
+            category: record.category,
+            amount: record.amount,
+          });
+        });
       }
 
       onSaved?.(transactions);

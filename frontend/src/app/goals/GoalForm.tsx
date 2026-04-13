@@ -312,10 +312,10 @@ export default function GoalForm({ initial, onSave, onCancel }: GoalFormProps) {
         <div>
           <label className="mb-1 block text-sm text-gray-300">
             Weekly contribution
-            {spendingSuggestion && (
+            {spendingSuggestion?.weeklySavings != null && (
               <button
                 type="button"
-                onClick={() => setWeeklyContribution(Math.round(spendingSuggestion.weeklySavings))}
+                onClick={() => setWeeklyContribution(Math.round(spendingSuggestion.weeklySavings!))}
                 className="ml-2 text-xs text-green-400 hover:text-green-300 underline"
               >
                 use suggested {formatMoney(Math.round(spendingSuggestion.weeklySavings))}/wk
@@ -326,7 +326,7 @@ export default function GoalForm({ initial, onSave, onCancel }: GoalFormProps) {
         </div>
       </div>
 
-      {spendingSuggestion && (
+      {spendingSuggestion?.weeklySavings != null && (
         <div className="rounded-md border border-green-800 bg-green-950/40 px-4 py-3 text-sm text-green-300">
           Based on your transactions, you save approximately{" "}
           <strong>{formatMoney(Math.round(spendingSuggestion.monthlySavings))}/month</strong> —

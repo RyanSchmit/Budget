@@ -46,6 +46,7 @@ import {
   selectTransactions,
   selectSelectedIds,
   selectKeywordRules,
+  selectBaselineById,
 } from "../../lib/store/selectors";
 
 export default function Transactions() {
@@ -64,6 +65,7 @@ export default function Transactions() {
   );
   const { dirtyTransactions } = useAppSelector(selectDirtyState);
   const keywordRules = useAppSelector(selectKeywordRules);
+  const baselineById = useAppSelector(selectBaselineById);
 
   const minScore = 0.22;
 
@@ -358,6 +360,7 @@ export default function Transactions() {
 
                       <SaveButton
                         transactions={dirtyTransactions}
+                        baselineById={baselineById}
                         onSaved={(saved) => {
                           if (!saved.length) return;
                           dispatch(updateBaselineForSaved(saved));
