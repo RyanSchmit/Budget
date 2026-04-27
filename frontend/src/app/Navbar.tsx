@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -16,7 +16,8 @@ export default function Navbar() {
   const router = useRouter();
 
   const advisorEnabled = useSelector(
-    (state: RootState) => state.preferences.preferences?.enable_ai_advisor ?? true,
+    (state: RootState) =>
+      state.preferences.preferences?.enable_ai_advisor ?? true,
   );
 
   useEffect(() => {
@@ -38,7 +39,7 @@ export default function Navbar() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    router.push('/');
+    router.push("/");
     router.refresh();
   };
 
@@ -62,6 +63,12 @@ export default function Navbar() {
             {!loading && user && (
               <nav aria-label="Primary" className="flex items-center gap-4">
                 <Link
+                  href="/goals"
+                  className="text-sm font-medium text-zinc-700 hover:text-black dark:text-zinc-300 dark:hover:text-zinc-50 px-3 py-1 rounded"
+                >
+                  Goals
+                </Link>
+                <Link
                   href="/transactions"
                   className="text-sm font-medium text-zinc-700 hover:text-black dark:text-zinc-300 dark:hover:text-zinc-50 px-3 py-1 rounded"
                 >
@@ -72,12 +79,6 @@ export default function Navbar() {
                   className="text-sm font-medium text-zinc-700 hover:text-black dark:text-zinc-300 dark:hover:text-zinc-50 px-3 py-1 rounded"
                 >
                   Insights
-                </Link>
-                <Link
-                  href="/goals"
-                  className="text-sm font-medium text-zinc-700 hover:text-black dark:text-zinc-300 dark:hover:text-zinc-50 px-3 py-1 rounded"
-                >
-                  Goals
                 </Link>
                 <Link
                   href="/net-worth"
