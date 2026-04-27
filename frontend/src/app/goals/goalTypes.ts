@@ -45,11 +45,11 @@ export const GOAL_TYPE_OPTIONS: Array<{ value: GoalType; label: string; icon: st
 
 export const GOAL_TYPE_TIPS: Partial<Record<GoalType, string>> = {
   emergency_fund:
-    "Emergency funds are typically sized at 3–6 months of expenses to cover unexpected costs.",
+    "Emergency funds are typically sized at 3-6 months of expenses to cover unexpected costs.",
   retirement:
-    "Experts recommend saving 10–12× your final annual income. Starting early dramatically reduces required contributions.",
+    "Experts recommend saving 10-12x your final annual income. Starting early dramatically reduces required contributions.",
   home_down_payment:
-    "A 20% down payment avoids PMI and reduces your monthly mortgage payment significantly.",
+    "A 20% down payment eliminates Private Mortgage Insurance (PMI), which typically costs 0.3%-1.5% of the loan amount annually.",
   debt_payoff:
     "Pay off high-interest debt first. Even small extra payments can save thousands in interest over time.",
   education:
