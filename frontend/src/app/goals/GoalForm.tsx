@@ -5,6 +5,7 @@ import MoneyInput from "@/app/MoneyInput";
 import { useAppSelector } from "@/lib/store/hooks";
 import { Goal, GoalType, GOAL_TYPE_OPTIONS, GOAL_TYPE_TIPS, TimelineType } from "./goalTypes";
 import { formatMoney } from "@/app/format";
+import { calculateTimeToGoal, calculateRequiredWeeklyContribution } from "./goalCalculate";
 
 interface GoalFormProps {
   initial?: Goal;
@@ -133,6 +134,49 @@ export default function GoalForm({ initial, onSave, onCancel }: GoalFormProps) {
 
   const tip = GOAL_TYPE_TIPS[type];
   const selectedOption = GOAL_TYPE_OPTIONS.find((o) => o.value === type);
+
+  // Live timeline estimate (flexible mode: contribution → time)
+  const timelineEstimate = (() => {
+    if (
+      timeline !== "flexible" ||
+      !targetAmount ||
+      targetAmount <= 0 ||
+      !weeklyContribution ||
+      weeklyContribution <= 0
+    )
+      return null;
+    return calculateTimeToGoal({
+      principal: currentSavings ?? 0,
+      weeklyContribution,
+      annualRate: Number(annualRate) || 0,
+      target: targetAmount,
+    });
+  })();
+
+  // Live contribution estimate (fixed mode: duration → contribution)
+  const contributionEstimate = (() => {
+    if (
+      timeline !== "duration" ||
+      !targetAmount ||
+      targetAmount <= 0 ||
+      !durationYears ||
+      parseFloat(durationYears) <= 0
+    )
+      return null;
+    return calculateRequiredWeeklyContribution({
+      principal: currentSavings ?? 0,
+      annualRate: Number(annualRate) || 0,
+      target: targetAmount,
+      years: parseFloat(durationYears),
+    });
+  })();
+
+  function formatTimelineEstimate(result: NonNullable<typeof timelineEstimate>) {
+    const { years, months } = result;
+    if (years === 0) return `${months} month${months !== 1 ? "s" : ""}`;
+    if (months === 0) return `${years} year${years !== 1 ? "s" : ""}`;
+    return `${years} year${years !== 1 ? "s" : ""} ${months} month${months !== 1 ? "s" : ""}`;
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -323,6 +367,13 @@ export default function GoalForm({ initial, onSave, onCancel }: GoalFormProps) {
             )}
           </label>
           <MoneyInput value={weeklyContribution} onChange={setWeeklyContribution} />
+          {timeline === "flexible" && weeklyContribution && weeklyContribution > 0 && targetAmount && targetAmount > 0 && (
+            <p className="mt-1.5 text-xs text-blue-300">
+              {timelineEstimate
+                ? `→ At ${formatMoney(weeklyContribution)}/week you'd reach your goal in ~${formatTimelineEstimate(timelineEstimate)}`
+                : "→ This contribution won't reach the goal (too low)"}
+            </p>
+          )}
         </div>
       </div>
 
@@ -362,6 +413,11 @@ export default function GoalForm({ initial, onSave, onCancel }: GoalFormProps) {
               placeholder="e.g. 5"
               className="h-10 w-full rounded-md border border-gray-700 bg-black px-3 text-white"
             />
+            {contributionEstimate && targetAmount && targetAmount > 0 && durationYears && parseFloat(durationYears) > 0 && (
+              <p className="mt-1.5 text-xs text-blue-300">
+                → You&apos;ll need ~{formatMoney(Math.ceil(contributionEstimate.weeklyContribution))}/week to reach your goal in {durationYears} year{parseFloat(durationYears) !== 1 ? "s" : ""}
+              </p>
+            )}
           </div>
         )}
 
