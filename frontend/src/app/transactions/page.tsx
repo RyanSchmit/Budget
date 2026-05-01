@@ -11,6 +11,7 @@ import KeywordsTab from "./keywords/KeywordsTab";
 import SelectionKeywordToolbar from "./keywords/SelectionKeywordToolbar";
 import SaveButton from "./save";
 import DeleteSelectedButton from "./delete";
+import ExportButton from "./export";
 import { loadTransactions } from "./loadTransactions";
 import { rulePredict } from "./keywords/keywordSearch";
 import { buildTfidfModel, TfidfModel } from "./tfidfModel";
@@ -369,6 +370,8 @@ export default function Transactions() {
                           dispatch(replaceTransaction({ oldId, newTransaction }));
                         }}
                       />
+
+                      <ExportButton transactions={filteredTransactions} />
 
                       <DeleteSelectedButton reloadFromDb={reloadFromDb} />
                     </div>
