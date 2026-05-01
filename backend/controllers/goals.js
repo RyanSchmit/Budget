@@ -52,6 +52,7 @@ function toRow(goal) {
     desired_annual_income: goal.desiredAnnualIncome ?? null,
     home_price: goal.homePrice ?? null,
     debt_interest_rate: goal.debtInterestRate ?? null,
+    ...(goal.position != null ? { position: goal.position } : {}),
   };
 }
 
@@ -65,6 +66,7 @@ function toGoal(row) {
     weeklyContribution: Number(row.weekly_contribution),
     annualRate: Number(row.annual_rate),
     timeline: row.timeline,
+    position: row.position != null ? Number(row.position) : null,
     durationYears: row.duration_years != null ? Number(row.duration_years) : undefined,
     emergencyMonths: row.emergency_months != null ? Number(row.emergency_months) : undefined,
     currentAge: row.current_age != null ? Number(row.current_age) : undefined,
@@ -78,14 +80,25 @@ function toGoal(row) {
 
 exports.list = async (req, res, next) => {
   try {
-    const { data, error } = await supabase
+    // Try ordering by position first; fall back to created_at if column doesn't exist yet
+    let result = await supabase
       .from("goals")
       .select("*")
       .eq("user_id", req.user.id)
+      .order("position", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: true });
 
-    if (error) throw error;
-    res.json(data.map(toGoal));
+    if (result.error?.code === "42703" || result.error?.code === "PGRST204") {
+      // Column doesn't exist yet — fall back until migration is run
+      result = await supabase
+        .from("goals")
+        .select("*")
+        .eq("user_id", req.user.id)
+        .order("created_at", { ascending: true });
+    }
+
+    if (result.error) throw result.error;
+    res.json(result.data.map(toGoal));
   } catch (err) {
     next(err);
   }
@@ -95,14 +108,29 @@ exports.create = async (req, res, next) => {
   try {
     if (validateGoalBody(res, req.body)) return;
 
-    const { data, error } = await supabase
+    // Assign position = current count so new goals appear at the end
+    const { count } = await supabase
       .from("goals")
-      .insert({ user_id: req.user.id, ...toRow(req.body) })
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", req.user.id);
+
+    let result = await supabase
+      .from("goals")
+      .insert({ user_id: req.user.id, position: count ?? 0, ...toRow(req.body) })
       .select()
       .single();
 
-    if (error) throw error;
-    res.status(201).json(toGoal(data));
+    // If column doesn't exist yet, insert without position
+    if (result.error?.code === "42703" || result.error?.code === "PGRST204") {
+      result = await supabase
+        .from("goals")
+        .insert({ user_id: req.user.id, ...toRow(req.body) })
+        .select()
+        .single();
+    }
+
+    if (result.error) throw result.error;
+    res.status(201).json(toGoal(result.data));
   } catch (err) {
     next(err);
   }
@@ -142,6 +170,35 @@ exports.remove = async (req, res, next) => {
       return res.status(404).json({ error: "Goal not found" });
     }
     if (error) throw error;
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.reorder = async (req, res, next) => {
+  try {
+    const items = req.body;
+    if (!Array.isArray(items)) {
+      return res.status(400).json({ error: "Body must be an array of { id, position }" });
+    }
+
+    const updates = await Promise.all(
+      items.map(({ id, position }) =>
+        supabase
+          .from("goals")
+          .update({ position, updated_at: new Date().toISOString() })
+          .eq("id", id)
+          .eq("user_id", req.user.id)
+      )
+    );
+
+    const firstError = updates.find((r) => r.error)?.error;
+    if (firstError?.code === "42703" || firstError?.code === "PGRST204") {
+      return res.status(503).json({ error: "Database migration pending: run ALTER TABLE goals ADD COLUMN position integer;" });
+    }
+    if (firstError) throw firstError;
+
     res.status(204).end();
   } catch (err) {
     next(err);

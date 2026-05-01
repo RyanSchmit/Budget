@@ -24,6 +24,9 @@ interface GoalCardProps {
   goal: Goal;
   onEdit: (goal: Goal) => void;
   onDelete: (id: string) => void;
+  dragHandleListeners?: Record<string, unknown>;
+  dragHandleAttributes?: Record<string, unknown>;
+  isDragOverlay?: boolean;
 }
 
 /** Downsample weekly chart data to monthly (every 4 points) for display. */
@@ -86,7 +89,33 @@ function buildScenarios(goal: Goal) {
 
 const COLORS = ["#4ade80", "#facc15", "#60a5fa"];
 
-export default function GoalCard({ goal, onEdit, onDelete }: GoalCardProps) {
+function GripIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <circle cx="5" cy="4" r="1.25" />
+      <circle cx="11" cy="4" r="1.25" />
+      <circle cx="5" cy="8" r="1.25" />
+      <circle cx="11" cy="8" r="1.25" />
+      <circle cx="5" cy="12" r="1.25" />
+      <circle cx="11" cy="12" r="1.25" />
+    </svg>
+  );
+}
+
+export default function GoalCard({
+  goal,
+  onEdit,
+  onDelete,
+  dragHandleListeners,
+  dragHandleAttributes,
+  isDragOverlay = false,
+}: GoalCardProps) {
   const [showChart, setShowChart] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -135,10 +164,23 @@ export default function GoalCard({ goal, onEdit, onDelete }: GoalCardProps) {
   }));
 
   return (
-    <div className="rounded-xl border border-gray-800 bg-gray-900 p-5 space-y-4 shadow-lg">
+    <div
+      className={`rounded-xl border border-gray-800 bg-gray-900 p-5 space-y-4 shadow-lg${isDragOverlay ? " rotate-1 opacity-95 shadow-2xl ring-1 ring-gray-600" : ""}`}
+    >
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
+          {dragHandleListeners && (
+            <button
+              {...dragHandleListeners}
+              {...dragHandleAttributes}
+              className="flex-shrink-0 cursor-grab active:cursor-grabbing text-gray-600 hover:text-gray-400 transition-colors touch-none p-0.5 -ml-0.5 rounded"
+              aria-label="Drag to reorder"
+              tabIndex={-1}
+            >
+              <GripIcon />
+            </button>
+          )}
           <span className="text-2xl flex-shrink-0">{option?.icon ?? "🎯"}</span>
           <div className="min-w-0">
             <h3 className="font-semibold text-white truncate">{goal.name}</h3>

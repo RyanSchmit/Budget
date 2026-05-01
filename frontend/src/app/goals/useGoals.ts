@@ -7,6 +7,7 @@ import {
   createGoal,
   updateGoal as apiUpdateGoal,
   deleteGoal,
+  reorderGoals as apiReorderGoals,
 } from "@/lib/api/client";
 
 function goalToApiPayload(goal: Goal): Omit<import("@/lib/api/client").ApiGoal, "id" | "createdAt"> {
@@ -109,5 +110,19 @@ export function useGoals() {
     });
   }
 
-  return { goals, loaded, addGoal, updateGoal, removeGoal };
+  function reorderGoals(reordered: Goal[]) {
+    const previous = goals;
+    setGoals(reordered);
+
+    const items = reordered.map((g, i) => ({ id: g.id, position: i }));
+    apiReorderGoals(items).catch((err: Error) => {
+      // 503 means the DB migration hasn't been run yet — keep the optimistic order
+      // so dragging still works visually; just don't persist it.
+      if (!err.message.includes("503")) {
+        setGoals(previous);
+      }
+    });
+  }
+
+  return { goals, loaded, addGoal, updateGoal, removeGoal, reorderGoals };
 }

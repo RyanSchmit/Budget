@@ -194,6 +194,7 @@ export interface ApiGoal {
   weeklyContribution: number;
   annualRate: number;
   timeline: string;
+  position: number | null;
   durationYears?: number;
   emergencyMonths?: number;
   currentAge?: number;
@@ -226,6 +227,13 @@ export function updateGoal(id: string, data: Omit<ApiGoal, "id" | "createdAt">):
 
 export function deleteGoal(id: string): Promise<void> {
   return apiFetch(`/api/goals/${id}`, { method: "DELETE" });
+}
+
+export function reorderGoals(items: { id: string; position: number }[]): Promise<void> {
+  return apiFetch("/api/goals/reorder", {
+    method: "PATCH",
+    body: JSON.stringify(items),
+  });
 }
 
 // ── Category Limits ───────────────────────────────────────────

@@ -9,15 +9,86 @@ import GoalForm from "./GoalForm";
 import { formatMoney } from "@/app/format";
 import { calculateTimeToGoal } from "./goalCalculate";
 import LoadTransactionsClient from "@/app/transactions/LoadTransactionsClient";
-import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import { useAppDispatch } from "@/lib/store/hooks";
 import { loadTransactionsSuccess } from "@/lib/store/transactionsSlice";
 import { Transaction } from "@/app/types";
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
+function SortableGoalCard({
+  goal,
+  onEdit,
+  onDelete,
+  isDragOverlay = false,
+}: {
+  goal: Goal;
+  onEdit: (goal: Goal) => void;
+  onDelete: (id: string) => void;
+  isDragOverlay?: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: goal.id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0 : 1,
+    touchAction: "none",
+  };
+
+  return (
+    <div ref={setNodeRef} style={isDragOverlay ? undefined : style}>
+      <GoalCard
+        goal={goal}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        dragHandleListeners={listeners}
+        dragHandleAttributes={attributes}
+        isDragOverlay={isDragOverlay}
+      />
+    </div>
+  );
+}
 
 export default function GoalQuestions() {
   const dispatch = useAppDispatch();
-  const { goals, loaded, addGoal, updateGoal, removeGoal } = useGoals();
+  const { goals, loaded, addGoal, updateGoal, removeGoal, reorderGoals } = useGoals();
   const [showForm, setShowForm] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+  const [activeGoal, setActiveGoal] = useState<Goal | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } })
+  );
+
+  function handleDragStart(event: DragStartEvent) {
+    const goal = goals.find((g) => g.id === event.active.id);
+    setActiveGoal(goal ?? null);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    setActiveGoal(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = goals.findIndex((g) => g.id === active.id);
+    const newIndex = goals.findIndex((g) => g.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    reorderGoals(arrayMove(goals, oldIndex, newIndex));
+  }
 
   function handleSave(goal: Goal) {
     if (editingGoal) {
@@ -165,16 +236,35 @@ export default function GoalQuestions() {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                {goals.map((goal) => (
-                  <GoalCard
-                    key={goal.id}
-                    goal={goal}
-                    onEdit={handleEdit}
-                    onDelete={removeGoal}
-                  />
-                ))}
-              </div>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext items={goals.map((g) => g.id)} strategy={rectSortingStrategy}>
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    {goals.map((goal) => (
+                      <SortableGoalCard
+                        key={goal.id}
+                        goal={goal}
+                        onEdit={handleEdit}
+                        onDelete={removeGoal}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+                <DragOverlay>
+                  {activeGoal ? (
+                    <SortableGoalCard
+                      goal={activeGoal}
+                      onEdit={handleEdit}
+                      onDelete={removeGoal}
+                      isDragOverlay
+                    />
+                  ) : null}
+                </DragOverlay>
+              </DndContext>
             )}
           </>
         )}

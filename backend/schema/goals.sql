@@ -20,9 +20,22 @@ CREATE TABLE goals (
   desired_annual_income numeric,
   home_price            numeric,
   debt_interest_rate    numeric,
+  position              integer,
   created_at            timestamptz NOT NULL DEFAULT now(),
   updated_at            timestamptz NOT NULL DEFAULT now()
 );
+
+-- ============================================================
+-- Migration: add position column (run if table already exists)
+-- ============================================================
+-- ALTER TABLE goals ADD COLUMN IF NOT EXISTS position integer;
+-- UPDATE goals g
+-- SET position = sub.rn - 1
+-- FROM (
+--   SELECT id, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at) AS rn
+--   FROM goals
+-- ) sub
+-- WHERE g.id = sub.id;
 
 -- RLS: users can only see and modify their own goals
 ALTER TABLE goals ENABLE ROW LEVEL SECURITY;
