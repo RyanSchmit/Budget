@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useAppDispatch, useAppSelector } from "../../../lib/store/hooks";
 import {
   resetToDefaults,
@@ -10,14 +10,17 @@ import {
 import {
   selectKeywordRules,
   selectKeywordRuleCategories,
+  selectTransactions,
 } from "../../../lib/store/selectors";
 import { saveKeywordRules } from "../../../lib/api/client";
 import { Rule } from "../../types";
+import { normalizeDescription } from "../normalizeDescription";
 
 export default function KeywordsTab() {
   const dispatch = useAppDispatch();
   const rules = useAppSelector(selectKeywordRules);
   const categories = useAppSelector(selectKeywordRuleCategories);
+  const transactions = useAppSelector(selectTransactions);
 
   const [newKeyword, setNewKeyword] = useState("");
   const [newCategory, setNewCategory] = useState("");
@@ -27,6 +30,28 @@ export default function KeywordsTab() {
     categoryFilter === "ALL"
       ? rules
       : rules.filter((r) => r.category === categoryFilter);
+
+  const normalizedDescs = useMemo(
+    () =>
+      transactions.map((t) =>
+        normalizeDescription(String(t.description ?? "")).toLowerCase(),
+      ),
+    [transactions],
+  );
+
+  const keywordCounts = useMemo(() => {
+    const uniq = new Set<string>();
+    for (const r of rules) {
+      for (const k of r.keywords) uniq.add(k.toLowerCase());
+    }
+    const counts = new Map<string, number>();
+    for (const kw of uniq) {
+      let n = 0;
+      for (const d of normalizedDescs) if (d.includes(kw)) n++;
+      counts.set(kw, n);
+    }
+    return counts;
+  }, [rules, normalizedDescs]);
 
   const syncToBackend = (updatedRules: Rule[]) => {
     saveKeywordRules(updatedRules).catch(() => {
@@ -161,22 +186,38 @@ export default function KeywordsTab() {
                   {rule.category}
                 </h4>
                 <ul className="flex flex-wrap gap-2">
-                  {rule.keywords.map((kw) => (
-                    <li
-                      key={kw}
-                      className="flex items-center gap-1 rounded-md bg-gray-800 px-2 py-1 text-sm"
-                    >
-                      <span className="text-gray-200">{kw}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemove(rule.category, kw)}
-                        className="ml-1 rounded p-0.5 text-gray-400 hover:bg-gray-700 hover:text-red-400"
-                        aria-label={`Remove ${kw}`}
-                      >
-                        ×
-                      </button>
-                    </li>
-                  ))}
+                  {[...rule.keywords]
+                    .sort((a, b) => {
+                      const ca = keywordCounts.get(a.toLowerCase()) ?? 0;
+                      const cb = keywordCounts.get(b.toLowerCase()) ?? 0;
+                      if (cb !== ca) return cb - ca;
+                      return a.localeCompare(b);
+                    })
+                    .map((kw) => {
+                      const count = keywordCounts.get(kw.toLowerCase()) ?? 0;
+                      return (
+                        <li
+                          key={kw}
+                          className="flex items-center gap-1 rounded-md bg-gray-800 px-2 py-1 text-sm"
+                        >
+                          <span className="text-gray-200">{kw}</span>
+                          <span
+                            className="ml-1 rounded bg-gray-700 px-1.5 text-xs text-gray-300"
+                            title={`${count} transaction${count === 1 ? "" : "s"} contain "${kw}"`}
+                          >
+                            {count}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemove(rule.category, kw)}
+                            className="ml-1 rounded p-0.5 text-gray-400 hover:bg-gray-700 hover:text-red-400"
+                            aria-label={`Remove ${kw}`}
+                          >
+                            ×
+                          </button>
+                        </li>
+                      );
+                    })}
                 </ul>
               </li>
             ))}
