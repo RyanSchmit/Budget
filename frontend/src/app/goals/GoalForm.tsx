@@ -66,6 +66,7 @@ export default function GoalForm({ initial, onSave, onCancel }: GoalFormProps) {
     initial?.type === "debt_payoff" ? (initial.targetAmount ?? null) : null
   );
   const [debtInterestRate, setDebtInterestRate] = useState<string>(initial?.debtInterestRate?.toString() ?? "");
+  const [autoTransferEnabled, setAutoTransferEnabled] = useState<boolean>(initial?.autoTransferEnabled ?? false);
 
   // Auto-compute target for smart types
   useEffect(() => {
@@ -127,6 +128,7 @@ export default function GoalForm({ initial, onSave, onCancel }: GoalFormProps) {
       desiredAnnualIncome: type === "retirement" ? (desiredAnnualIncome ?? undefined) : undefined,
       homePrice: type === "home_down_payment" ? (homePrice ?? undefined) : undefined,
       debtInterestRate: type === "debt_payoff" ? parseFloat(debtInterestRate) : undefined,
+      autoTransferEnabled,
     };
 
     onSave(goal);
@@ -386,6 +388,22 @@ export default function GoalForm({ initial, onSave, onCancel }: GoalFormProps) {
           could direct toward this goal.
         </div>
       )}
+
+      {/* Auto-transfer tracking flag */}
+      <label className="flex items-start gap-3 rounded-md border border-gray-700 bg-gray-950/40 px-4 py-3 cursor-pointer hover:bg-gray-900/60 transition">
+        <input
+          type="checkbox"
+          checked={autoTransferEnabled}
+          onChange={(e) => setAutoTransferEnabled(e.target.checked)}
+          className="mt-0.5 h-4 w-4 cursor-pointer accent-green-500"
+        />
+        <span className="text-sm">
+          <span className="block text-gray-200">Auto-transfer set up at my bank</span>
+          <span className="block text-xs text-gray-500">
+            Check this if you&apos;ve already scheduled an automatic transfer for this goal.
+          </span>
+        </span>
+      </label>
 
       {/* Timeline & rate */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

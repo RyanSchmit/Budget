@@ -26,6 +26,7 @@ function goalToApiPayload(goal: Goal): Omit<import("@/lib/api/client").ApiGoal, 
     desiredAnnualIncome: goal.desiredAnnualIncome,
     homePrice: goal.homePrice,
     debtInterestRate: goal.debtInterestRate,
+    autoTransferEnabled: goal.autoTransferEnabled,
   };
 }
 
@@ -46,6 +47,7 @@ function apiGoalToGoal(api: import("@/lib/api/client").ApiGoal): Goal {
     desiredAnnualIncome: api.desiredAnnualIncome,
     homePrice: api.homePrice,
     debtInterestRate: api.debtInterestRate,
+    autoTransferEnabled: api.autoTransferEnabled ?? false,
     createdAt: api.createdAt,
   };
 }

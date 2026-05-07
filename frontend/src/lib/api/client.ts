@@ -202,6 +202,7 @@ export interface ApiGoal {
   desiredAnnualIncome?: number;
   homePrice?: number;
   debtInterestRate?: number;
+  autoTransferEnabled: boolean;
   createdAt: string;
 }
 

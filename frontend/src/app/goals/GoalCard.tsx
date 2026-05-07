@@ -183,7 +183,24 @@ export default function GoalCard({
           )}
           <span className="text-2xl flex-shrink-0">{option?.icon ?? "🎯"}</span>
           <div className="min-w-0">
-            <h3 className="font-semibold text-white truncate">{goal.name}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-white truncate">{goal.name}</h3>
+              {goal.autoTransferEnabled ? (
+                <span
+                  className="flex-shrink-0 rounded-full border border-green-800 bg-green-900/40 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-green-300"
+                  title="Automatic transfer scheduled at your bank"
+                >
+                  Auto-transfer on
+                </span>
+              ) : (
+                <span
+                  className="flex-shrink-0 rounded-full border border-amber-800 bg-amber-900/30 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-300"
+                  title="You haven't marked an automatic transfer as set up for this goal"
+                >
+                  Set up auto-transfer
+                </span>
+              )}
+            </div>
             <p className="text-xs text-gray-400">{option?.label}</p>
           </div>
         </div>

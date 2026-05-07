@@ -21,6 +21,7 @@ CREATE TABLE goals (
   home_price            numeric,
   debt_interest_rate    numeric,
   position              integer,
+  auto_transfer_enabled boolean NOT NULL DEFAULT false,
   created_at            timestamptz NOT NULL DEFAULT now(),
   updated_at            timestamptz NOT NULL DEFAULT now()
 );
@@ -36,6 +37,11 @@ CREATE TABLE goals (
 --   FROM goals
 -- ) sub
 -- WHERE g.id = sub.id;
+
+-- ============================================================
+-- Migration: add auto_transfer_enabled column (run if table already exists)
+-- ============================================================
+-- ALTER TABLE goals ADD COLUMN IF NOT EXISTS auto_transfer_enabled boolean NOT NULL DEFAULT false;
 
 -- RLS: users can only see and modify their own goals
 ALTER TABLE goals ENABLE ROW LEVEL SECURITY;

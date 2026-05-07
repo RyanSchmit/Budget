@@ -40,6 +40,14 @@ function optionalNumber(value, name, opts) {
   return requireNumber(value, name, opts);
 }
 
+function optionalBoolean(value, name) {
+  if (value == null) return null;
+  if (typeof value !== "boolean") {
+    return `${name} must be a boolean`;
+  }
+  return null;
+}
+
 function requireEnum(value, name, allowed) {
   if (!allowed.includes(value)) {
     return `${name} must be one of: ${allowed.join(", ")}`;
@@ -84,6 +92,7 @@ module.exports = {
   requireString,
   requireNumber,
   optionalNumber,
+  optionalBoolean,
   requireEnum,
   requireDate,
   parsePagination,

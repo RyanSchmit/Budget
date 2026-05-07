@@ -29,6 +29,7 @@ export interface Goal {
   desiredAnnualIncome?: number;
   homePrice?: number;
   debtInterestRate?: number;
+  autoTransferEnabled: boolean;
 }
 
 export const GOAL_TYPE_OPTIONS: Array<{ value: GoalType; label: string; icon: string }> = [

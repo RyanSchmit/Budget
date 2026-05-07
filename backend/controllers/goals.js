@@ -3,6 +3,7 @@ const {
   requireString,
   requireNumber,
   optionalNumber,
+  optionalBoolean,
   requireEnum,
   validate,
 } = require("../utils/validation");
@@ -33,6 +34,7 @@ function validateGoalBody(res, body) {
     optionalNumber(body.desiredAnnualIncome, "desiredAnnualIncome", { min: 0 }),
     optionalNumber(body.homePrice, "homePrice", { min: 0 }),
     optionalNumber(body.debtInterestRate, "debtInterestRate", { min: 0, max: 100 }),
+    optionalBoolean(body.autoTransferEnabled, "autoTransferEnabled"),
   ]);
 }
 
@@ -53,6 +55,9 @@ function toRow(goal) {
     home_price: goal.homePrice ?? null,
     debt_interest_rate: goal.debtInterestRate ?? null,
     ...(goal.position != null ? { position: goal.position } : {}),
+    ...(goal.autoTransferEnabled != null
+      ? { auto_transfer_enabled: !!goal.autoTransferEnabled }
+      : {}),
   };
 }
 
@@ -74,8 +79,21 @@ function toGoal(row) {
     desiredAnnualIncome: row.desired_annual_income != null ? Number(row.desired_annual_income) : undefined,
     homePrice: row.home_price != null ? Number(row.home_price) : undefined,
     debtInterestRate: row.debt_interest_rate != null ? Number(row.debt_interest_rate) : undefined,
+    autoTransferEnabled: !!row.auto_transfer_enabled,
     createdAt: row.created_at,
   };
+}
+
+// Strip optional columns from a row when the DB schema may be missing them
+// (i.e. a migration hasn't been run yet). Used by fallback paths.
+function stripFallbackColumns(row) {
+  // eslint-disable-next-line no-unused-vars
+  const { position, auto_transfer_enabled, ...rest } = row;
+  return rest;
+}
+
+function isMissingColumnError(error) {
+  return error?.code === "42703" || error?.code === "PGRST204";
 }
 
 exports.list = async (req, res, next) => {
@@ -114,17 +132,18 @@ exports.create = async (req, res, next) => {
       .select("*", { count: "exact", head: true })
       .eq("user_id", req.user.id);
 
+    const row = toRow(req.body);
     let result = await supabase
       .from("goals")
-      .insert({ user_id: req.user.id, position: count ?? 0, ...toRow(req.body) })
+      .insert({ user_id: req.user.id, position: count ?? 0, ...row })
       .select()
       .single();
 
-    // If column doesn't exist yet, insert without position
-    if (result.error?.code === "42703" || result.error?.code === "PGRST204") {
+    // If a column doesn't exist yet (pre-migration), retry without optional cols
+    if (isMissingColumnError(result.error)) {
       result = await supabase
         .from("goals")
-        .insert({ user_id: req.user.id, ...toRow(req.body) })
+        .insert({ user_id: req.user.id, ...stripFallbackColumns(row) })
         .select()
         .single();
     }
@@ -140,19 +159,31 @@ exports.update = async (req, res, next) => {
   try {
     if (validateGoalBody(res, req.body)) return;
 
-    const { data, error } = await supabase
+    const row = toRow(req.body);
+    let result = await supabase
       .from("goals")
-      .update({ ...toRow(req.body), updated_at: new Date().toISOString() })
+      .update({ ...row, updated_at: new Date().toISOString() })
       .eq("id", req.params.id)
       .eq("user_id", req.user.id)
       .select()
       .single();
 
-    if (error && error.code === "PGRST116") {
+    // If a column doesn't exist yet (pre-migration), retry without optional cols
+    if (isMissingColumnError(result.error)) {
+      result = await supabase
+        .from("goals")
+        .update({ ...stripFallbackColumns(row), updated_at: new Date().toISOString() })
+        .eq("id", req.params.id)
+        .eq("user_id", req.user.id)
+        .select()
+        .single();
+    }
+
+    if (result.error && result.error.code === "PGRST116") {
       return res.status(404).json({ error: "Goal not found" });
     }
-    if (error) throw error;
-    res.json(toGoal(data));
+    if (result.error) throw result.error;
+    res.json(toGoal(result.data));
   } catch (err) {
     next(err);
   }
