@@ -15,6 +15,7 @@ import {
 import { saveKeywordRules } from "../../../lib/api/client";
 import { Rule } from "../../types";
 import { normalizeDescription } from "../normalizeDescription";
+import { tokenize } from "./keywordSearch";
 
 export default function KeywordsTab() {
   const dispatch = useAppDispatch();
@@ -25,6 +26,9 @@ export default function KeywordsTab() {
   const [newKeyword, setNewKeyword] = useState("");
   const [newCategory, setNewCategory] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
+  const [showCommonWords, setShowCommonWords] = useState(false);
+  const [hideExistingKeywords, setHideExistingKeywords] = useState(true);
+  const [commonWordsLimit, setCommonWordsLimit] = useState<number>(50);
 
   const filteredRules =
     categoryFilter === "ALL"
@@ -52,6 +56,51 @@ export default function KeywordsTab() {
     }
     return counts;
   }, [rules, normalizedDescs]);
+
+  // Map from a lowercased keyword to the category it belongs to (first match wins,
+  // matching rulePredict ordering). Used to flag common words already in use.
+  const keywordToCategory = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of rules) {
+      for (const k of r.keywords) {
+        const key = k.toLowerCase();
+        if (!map.has(key)) map.set(key, r.category);
+      }
+    }
+    return map;
+  }, [rules]);
+
+  // Word-frequency view: tokenize every normalized transaction description and
+  // count document frequency (how many transactions contain the token). This is
+  // a flat view across all categories, useful for discovering new keywords.
+  const commonWords = useMemo(() => {
+    if (!showCommonWords) return [] as Array<{ word: string; count: number }>;
+    const docFreq = new Map<string, number>();
+    for (const d of normalizedDescs) {
+      const seen = new Set<string>();
+      for (const tok of tokenize(d)) {
+        // Skip purely-numeric tokens (dates, store numbers, etc.) — not useful
+        // as keyword candidates.
+        if (/^\d+$/.test(tok)) continue;
+        if (seen.has(tok)) continue;
+        seen.add(tok);
+        docFreq.set(tok, (docFreq.get(tok) ?? 0) + 1);
+      }
+    }
+    const arr = Array.from(docFreq, ([word, count]) => ({ word, count }));
+    arr.sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return a.word.localeCompare(b.word);
+    });
+    return arr;
+  }, [showCommonWords, normalizedDescs]);
+
+  const visibleCommonWords = useMemo(() => {
+    const filtered = hideExistingKeywords
+      ? commonWords.filter((w) => !keywordToCategory.has(w.word))
+      : commonWords;
+    return filtered.slice(0, commonWordsLimit);
+  }, [commonWords, hideExistingKeywords, keywordToCategory, commonWordsLimit]);
 
   const syncToBackend = (updatedRules: Rule[]) => {
     saveKeywordRules(updatedRules).catch(() => {
@@ -165,6 +214,107 @@ export default function KeywordsTab() {
             </option>
           ))}
         </select>
+      </div>
+
+      {/* Most common words across all transactions (category-agnostic) */}
+      <div className="rounded-lg border border-gray-800 bg-white/[0.03] p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h4 className="text-sm font-medium text-white">
+              Most common words across transactions
+            </h4>
+            <p className="mt-1 text-xs text-gray-400">
+              Discover frequent words in your transaction descriptions to find
+              candidates for new keywords. Click a word to use it as a new
+              keyword.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowCommonWords((v) => !v)}
+            className="rounded-md border border-gray-700 bg-black px-3 py-1.5 text-xs text-gray-200 hover:bg-gray-900"
+          >
+            {showCommonWords ? "Hide" : "Show"}
+          </button>
+        </div>
+
+        {showCommonWords && (
+          <div className="mt-4 space-y-3">
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="flex items-center gap-2 text-xs text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={hideExistingKeywords}
+                  onChange={(e) => setHideExistingKeywords(e.target.checked)}
+                  className="h-3.5 w-3.5"
+                />
+                Hide words already used as keywords
+              </label>
+              <label className="flex items-center gap-2 text-xs text-gray-300">
+                Top:
+                <select
+                  value={commonWordsLimit}
+                  onChange={(e) => setCommonWordsLimit(Number(e.target.value))}
+                  className="rounded-md border border-gray-700 bg-black px-2 py-1 text-xs text-white"
+                >
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={250}>250</option>
+                </select>
+              </label>
+              <span className="text-xs text-gray-500">
+                Showing {visibleCommonWords.length} of {commonWords.length}{" "}
+                unique words
+              </span>
+            </div>
+
+            {visibleCommonWords.length === 0 ? (
+              <p className="text-sm text-gray-500">
+                {transactions.length === 0
+                  ? "No transactions yet."
+                  : hideExistingKeywords
+                    ? "All common words are already covered by your keywords."
+                    : "No words to show."}
+              </p>
+            ) : (
+              <ul className="flex flex-wrap gap-2">
+                {visibleCommonWords.map(({ word, count }) => {
+                  const existingCategory = keywordToCategory.get(word);
+                  return (
+                    <li
+                      key={word}
+                      className="flex items-center gap-1 rounded-md bg-gray-800 px-2 py-1 text-sm"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setNewKeyword(word)}
+                        title={`Use "${word}" as new keyword`}
+                        className="text-gray-200 hover:text-blue-300"
+                      >
+                        {word}
+                      </button>
+                      <span
+                        className="ml-1 rounded bg-gray-700 px-1.5 text-xs text-gray-300"
+                        title={`Appears in ${count} transaction${count === 1 ? "" : "s"}`}
+                      >
+                        {count}
+                      </span>
+                      {existingCategory && (
+                        <span
+                          className="ml-1 rounded bg-blue-900/60 px-1.5 text-xs text-blue-200"
+                          title={`Already a keyword in "${existingCategory}"`}
+                        >
+                          {existingCategory}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
 
       {/* List by category */}

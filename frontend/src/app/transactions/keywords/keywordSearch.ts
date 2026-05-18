@@ -51,7 +51,7 @@ const DEFAULT_STOPWORDS = new Set<string>([
   "with",
 ]);
 
-function tokenize(raw: string): Token[] {
+export function tokenize(raw: string): Token[] {
   const text = String(raw ?? "").toLowerCase();
   const tokens = text
     .replace(/[^a-z0-9]+/g, " ")
