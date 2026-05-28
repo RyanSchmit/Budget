@@ -8,6 +8,8 @@ interface FiltersState {
   showDateFilter: boolean;
   month: number | "ALL";
   year: number | "ALL";
+  expensesOnly: boolean;
+  incomeOnly: boolean;
 }
 
 const initialState: FiltersState = {
@@ -18,6 +20,8 @@ const initialState: FiltersState = {
   showDateFilter: false,
   month: "ALL",
   year: "ALL",
+  expensesOnly: false,
+  incomeOnly: false,
 };
 
 const filtersSlice = createSlice({
@@ -45,6 +49,12 @@ const filtersSlice = createSlice({
     setYear(state, action: PayloadAction<number | "ALL">) {
       state.year = action.payload;
     },
+    setExpensesOnly(state, action: PayloadAction<boolean>) {
+      state.expensesOnly = action.payload;
+    },
+    setIncomeOnly(state, action: PayloadAction<boolean>) {
+      state.incomeOnly = action.payload;
+    },
     clearFilters(state) {
       state.searchQuery = "";
       state.categoryFilter = "ALL";
@@ -52,6 +62,8 @@ const filtersSlice = createSlice({
       state.endDate = "";
       state.month = "ALL";
       state.year = "ALL";
+      state.expensesOnly = false;
+      state.incomeOnly = false;
     },
   },
 });
@@ -64,6 +76,8 @@ export const {
   setShowDateFilter,
   setMonth,
   setYear,
+  setExpensesOnly,
+  setIncomeOnly,
   clearFilters,
 } = filtersSlice.actions;
 

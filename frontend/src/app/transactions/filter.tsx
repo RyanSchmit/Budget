@@ -13,6 +13,8 @@ export type TransactionFilters = {
 
   month: number | "ALL";
   year: number | "ALL";
+  expensesOnly: boolean;
+  incomeOnly: boolean;
 };
 
 type FilterBarProps = {
@@ -29,6 +31,8 @@ type FilterBarProps = {
   setEndDate: (v: string) => void;
   setMonth: (v: number | "ALL") => void;
   setYear: (v: number | "ALL") => void;
+  setExpensesOnly: (v: boolean) => void;
+  setIncomeOnly: (v: boolean) => void;
 
   showDateFilter: boolean;
   setShowDateFilter: (v: boolean) => void;
@@ -48,6 +52,8 @@ export function filterTransactions(
     endDate,
     month,
     year,
+    expensesOnly,
+    incomeOnly,
   } = filters;
 
   const q = searchQuery.trim().toLowerCase();
@@ -69,13 +75,18 @@ export function filterTransactions(
     const matchesYear =
       year === "ALL" || txDate.getFullYear() === year;
 
+    const matchesExpensesOnly = !expensesOnly || t.amount < 0;
+    const matchesIncomeOnly = !incomeOnly || t.amount > 0;
+
     return (
       matchesSearch &&
       matchesCategory &&
       afterStart &&
       beforeEnd &&
       matchesMonth &&
-      matchesYear
+      matchesYear &&
+      matchesExpensesOnly &&
+      matchesIncomeOnly
     );
   });
 }
@@ -118,6 +129,8 @@ export function FilterBar({
   setEndDate,
   setMonth,
   setYear,
+  setExpensesOnly,
+  setIncomeOnly,
   showDateFilter,
   setShowDateFilter,
 }: FilterBarProps) {
@@ -130,6 +143,8 @@ export function FilterBar({
     endDate,
     month,
     year,
+    expensesOnly,
+    incomeOnly,
   } = filters;
 
   const hasFilters = Boolean(
@@ -138,7 +153,9 @@ export function FilterBar({
       startDate ||
       endDate ||
       month !== "ALL" ||
-      year !== "ALL",
+      year !== "ALL" ||
+      expensesOnly ||
+      incomeOnly,
   );
 
   const monthNames = [
@@ -203,6 +220,39 @@ export function FilterBar({
         ))}
       </select>
 
+      {/* Transaction type toggles — always side by side */}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            setExpensesOnly(!expensesOnly);
+            if (!expensesOnly) setIncomeOnly(false);
+          }}
+          className={`rounded-md px-4 py-2 text-sm ${
+            expensesOnly
+              ? "bg-red-700 text-white hover:bg-red-600"
+              : "bg-gray-700 hover:bg-gray-600"
+          }`}
+        >
+          Expenses Only
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setIncomeOnly(!incomeOnly);
+            if (!incomeOnly) setExpensesOnly(false);
+          }}
+          className={`rounded-md px-4 py-2 text-sm ${
+            incomeOnly
+              ? "bg-green-700 text-white hover:bg-green-600"
+              : "bg-gray-700 hover:bg-gray-600"
+          }`}
+        >
+          Income Only
+        </button>
+      </div>
+
       {/* Date Toggle */}
       <button
         type="button"
@@ -250,6 +300,8 @@ export function FilterBar({
             setEndDate("");
             setMonth("ALL");
             setYear("ALL");
+            setExpensesOnly(false);
+            setIncomeOnly(false);
           }}
           className="text-sm text-gray-400 hover:text-white"
         >

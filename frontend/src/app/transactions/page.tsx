@@ -34,6 +34,8 @@ import {
   setShowDateFilter,
   setMonth,
   setYear,
+  setExpensesOnly,
+  setIncomeOnly,
 } from "../../lib/store/filtersSlice";
 import { setActiveTab } from "../../lib/store/uiSlice";
 import {
@@ -335,6 +337,8 @@ export default function Transactions() {
                     setEndDate={(v) => dispatch(setEndDate(v))}
                     setMonth={(v) => dispatch(setMonth(v))}
                     setYear={(v) => dispatch(setYear(v))}
+                    setExpensesOnly={(v) => dispatch(setExpensesOnly(v))}
+                    setIncomeOnly={(v) => dispatch(setIncomeOnly(v))}
                     showDateFilter={filters.showDateFilter}
                     setShowDateFilter={(v) => dispatch(setShowDateFilter(v))}
                   />
