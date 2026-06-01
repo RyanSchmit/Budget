@@ -69,15 +69,15 @@ export default function RentVsBuyCalculator() {
   const difference = rentResults.netCost - buyResults.netCost;
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black">
+    <div className="min-h-screen bg-gray-950 text-white">
       <Navbar />
 
       <main className="pt-24 pb-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-4xl font-bold text-black dark:text-white mb-2">
+          <h1 className="text-4xl font-bold text-white mb-2">
             Rent vs Buy Calculator
           </h1>
-          <p className="text-zinc-600 dark:text-zinc-400 mb-8">
+          <p className="text-gray-400 mb-8">
             Compare the long-term costs of renting versus buying a home
           </p>
 
@@ -85,14 +85,14 @@ export default function RentVsBuyCalculator() {
             {/* Input Section */}
             <div className="space-y-6">
               {/* Buy Inputs */}
-              <div className="bg-zinc-50 dark:bg-zinc-900 p-6 rounded-lg">
-                <h2 className="text-xl font-semibold text-black dark:text-white mb-4">
+              <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl">
+                <h2 className="text-xl font-semibold text-white mb-4">
                   Home Purchase
                 </h2>
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
                       Home Price: ${homePrice.toLocaleString()}
                     </label>
                     <input
@@ -107,7 +107,7 @@ export default function RentVsBuyCalculator() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
                       Down Payment: ${downPayment.toLocaleString()} (
                       {((downPayment / homePrice) * 100).toFixed(1)}%)
                     </label>
@@ -123,7 +123,7 @@ export default function RentVsBuyCalculator() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
                       Interest Rate: {interestRate}%
                     </label>
                     <input
@@ -138,7 +138,7 @@ export default function RentVsBuyCalculator() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
                       Loan Term: {loanTerm} years
                     </label>
                     <input
@@ -153,7 +153,7 @@ export default function RentVsBuyCalculator() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
                       Property Tax Rate: {propertyTax}%
                     </label>
                     <input
@@ -168,7 +168,7 @@ export default function RentVsBuyCalculator() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
                       Monthly HOA: ${hoa}
                     </label>
                     <input
@@ -183,7 +183,7 @@ export default function RentVsBuyCalculator() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
                       Maintenance: {maintenance}% annually
                     </label>
                     <input
@@ -198,7 +198,7 @@ export default function RentVsBuyCalculator() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
                       Home Appreciation: {homeAppreciation}% annually
                     </label>
                     <input
@@ -217,14 +217,14 @@ export default function RentVsBuyCalculator() {
               </div>
 
               {/* Rent Inputs */}
-              <div className="bg-zinc-50 dark:bg-zinc-900 p-6 rounded-lg">
-                <h2 className="text-xl font-semibold text-black dark:text-white mb-4">
+              <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl">
+                <h2 className="text-xl font-semibold text-white mb-4">
                   Renting
                 </h2>
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
                       Monthly Rent: ${monthlyRent.toLocaleString()}
                     </label>
                     <input
@@ -239,7 +239,7 @@ export default function RentVsBuyCalculator() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
                       Annual Rent Increase: {rentIncrease}%
                     </label>
                     <input
@@ -254,7 +254,7 @@ export default function RentVsBuyCalculator() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
                       Investment Return: {investmentReturn}% annually
                     </label>
                     <input
@@ -273,13 +273,13 @@ export default function RentVsBuyCalculator() {
               </div>
 
               {/* Timeline */}
-              <div className="bg-zinc-50 dark:bg-zinc-900 p-6 rounded-lg">
-                <h2 className="text-xl font-semibold text-black dark:text-white mb-4">
+              <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl">
+                <h2 className="text-xl font-semibold text-white mb-4">
                   Timeline
                 </h2>
 
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
                     Years to Compare: {years}
                   </label>
                   <input
@@ -297,31 +297,31 @@ export default function RentVsBuyCalculator() {
 
             {/* Results Section */}
             <div className="space-y-6">
-              <div className="bg-zinc-50 dark:bg-zinc-900 p-6 rounded-lg">
-                <h2 className="text-xl font-semibold text-black dark:text-white mb-4">
+              <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl">
+                <h2 className="text-xl font-semibold text-white mb-4">
                   Comparison Results (After {years} Years)
                 </h2>
 
                 <div className="space-y-6">
                   {/* Buy Results */}
                   <div className="border-l-4 border-blue-500 pl-4">
-                    <h3 className="font-semibold text-lg text-black dark:text-white mb-2">
+                    <h3 className="font-semibold text-lg text-white mb-2">
                       Buying
                     </h3>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-zinc-600 dark:text-zinc-400">
+                        <span className="text-gray-400">
                           Monthly Payment:
                         </span>
-                        <span className="font-medium text-black dark:text-white">
+                        <span className="font-medium text-white">
                           ${buyResults.monthlyPayment.toFixed(0)}
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-zinc-600 dark:text-zinc-400">
+                        <span className="text-gray-400">
                           Total Paid:
                         </span>
-                        <span className="font-medium text-black dark:text-white">
+                        <span className="font-medium text-white">
                           $
                           {buyResults.totalCost.toLocaleString(undefined, {
                             maximumFractionDigits: 0,
@@ -329,21 +329,21 @@ export default function RentVsBuyCalculator() {
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-zinc-600 dark:text-zinc-400">
+                        <span className="text-gray-400">
                           Home Equity:
                         </span>
-                        <span className="font-medium text-green-600 dark:text-green-400">
+                        <span className="font-medium text-green-400">
                           $
                           {buyResults.equity.toLocaleString(undefined, {
                             maximumFractionDigits: 0,
                           })}
                         </span>
                       </div>
-                      <div className="flex justify-between pt-2 border-t border-zinc-200 dark:border-zinc-700">
-                        <span className="text-zinc-600 dark:text-zinc-400 font-semibold">
+                      <div className="flex justify-between pt-2 border-t border-gray-700">
+                        <span className="text-gray-400 font-semibold">
                           Net Cost:
                         </span>
-                        <span className="font-bold text-black dark:text-white">
+                        <span className="font-bold text-white">
                           $
                           {buyResults.netCost.toLocaleString(undefined, {
                             maximumFractionDigits: 0,
@@ -355,23 +355,23 @@ export default function RentVsBuyCalculator() {
 
                   {/* Rent Results */}
                   <div className="border-l-4 border-purple-500 pl-4">
-                    <h3 className="font-semibold text-lg text-black dark:text-white mb-2">
+                    <h3 className="font-semibold text-lg text-white mb-2">
                       Renting
                     </h3>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-zinc-600 dark:text-zinc-400">
+                        <span className="text-gray-400">
                           Starting Monthly Rent:
                         </span>
-                        <span className="font-medium text-black dark:text-white">
+                        <span className="font-medium text-white">
                           ${rentResults.monthlyPayment.toFixed(0)}
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-zinc-600 dark:text-zinc-400">
+                        <span className="text-gray-400">
                           Total Rent Paid:
                         </span>
-                        <span className="font-medium text-black dark:text-white">
+                        <span className="font-medium text-white">
                           $
                           {rentResults.totalCost.toLocaleString(undefined, {
                             maximumFractionDigits: 0,
@@ -379,10 +379,10 @@ export default function RentVsBuyCalculator() {
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-zinc-600 dark:text-zinc-400">
+                        <span className="text-gray-400">
                           Investments:
                         </span>
-                        <span className="font-medium text-green-600 dark:text-green-400">
+                        <span className="font-medium text-green-400">
                           $
                           {rentResults.investmentValue.toLocaleString(
                             undefined,
@@ -390,11 +390,11 @@ export default function RentVsBuyCalculator() {
                           )}
                         </span>
                       </div>
-                      <div className="flex justify-between pt-2 border-t border-zinc-200 dark:border-zinc-700">
-                        <span className="text-zinc-600 dark:text-zinc-400 font-semibold">
+                      <div className="flex justify-between pt-2 border-t border-gray-700">
+                        <span className="text-gray-400 font-semibold">
                           Net Cost:
                         </span>
-                        <span className="font-bold text-black dark:text-white">
+                        <span className="font-bold text-white">
                           $
                           {rentResults.netCost.toLocaleString(undefined, {
                             maximumFractionDigits: 0,
@@ -405,18 +405,18 @@ export default function RentVsBuyCalculator() {
                   </div>
 
                   {/* Winner */}
-                  <div className="bg-white dark:bg-black p-4 rounded-lg border-2 border-green-500">
-                    <h3 className="font-semibold text-lg text-black dark:text-white mb-2">
+                  <div className="bg-green-900/20 p-4 rounded-lg border-2 border-green-700">
+                    <h3 className="font-semibold text-lg text-white mb-2">
                       Recommendation
                     </h3>
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-2">
+                    <p className="text-sm text-gray-400 mb-2">
                       {difference > 0 ? (
                         <>
-                          <span className="font-bold text-green-600 dark:text-green-400">
+                          <span className="font-bold text-green-400">
                             Buying is better
                           </span>{" "}
                           by{" "}
-                          <span className="font-bold">
+                          <span className="font-bold text-white">
                             $
                             {Math.abs(difference).toLocaleString(undefined, {
                               maximumFractionDigits: 0,
@@ -425,11 +425,11 @@ export default function RentVsBuyCalculator() {
                         </>
                       ) : (
                         <>
-                          <span className="font-bold text-green-600 dark:text-green-400">
+                          <span className="font-bold text-green-400">
                             Renting is better
                           </span>{" "}
                           by{" "}
-                          <span className="font-bold">
+                          <span className="font-bold text-white">
                             $
                             {Math.abs(difference).toLocaleString(undefined, {
                               maximumFractionDigits: 0,
@@ -438,7 +438,7 @@ export default function RentVsBuyCalculator() {
                         </>
                       )}
                     </p>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-500">
+                    <p className="text-xs text-gray-500">
                       This assumes you invest the down payment if renting, and
                       factors in home appreciation and investment returns.
                     </p>
@@ -446,12 +446,13 @@ export default function RentVsBuyCalculator() {
                 </div>
               </div>
 
-              <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
-                <p className="text-sm text-blue-900 dark:text-blue-100">
-                  <strong>Note:</strong> This calculator provides estimates for
-                  comparison purposes. Actual costs may vary based on location,
-                  market conditions, and personal circumstances. Consider
-                  consulting a financial advisor for personalized advice.
+              <div className="bg-gray-900 border border-gray-800 p-4 rounded-xl">
+                <p className="text-sm text-gray-400">
+                  <strong className="text-gray-300">Note:</strong> This
+                  calculator provides estimates for comparison purposes. Actual
+                  costs may vary based on location, market conditions, and
+                  personal circumstances. Consider consulting a financial
+                  advisor for personalized advice.
                 </p>
               </div>
             </div>

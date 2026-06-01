@@ -29,10 +29,8 @@ function Toggle({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={[
-        "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100 focus:ring-offset-2",
-        checked
-          ? "bg-zinc-900 dark:bg-zinc-100"
-          : "bg-zinc-300 dark:bg-zinc-600",
+        "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-950",
+        checked ? "bg-green-600" : "bg-gray-600",
         disabled ? "opacity-40 cursor-not-allowed" : "",
       ]
         .filter(Boolean)
@@ -40,7 +38,7 @@ function Toggle({
     >
       <span
         className={[
-          "pointer-events-none inline-block h-5 w-5 rounded-full bg-white dark:bg-zinc-900 shadow ring-0 transition-transform duration-200",
+          "pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow ring-0 transition-transform duration-200",
           checked ? "translate-x-5" : "translate-x-0",
         ].join(" ")}
       />
@@ -113,40 +111,40 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-zinc-950">
+      <div className="min-h-screen bg-gray-950 text-white">
         <Navbar />
         <div className="flex items-center justify-center min-h-screen">
-          <p className="text-zinc-500 text-sm">Loading profile…</p>
+          <p className="text-gray-400 text-sm">Loading profile…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-zinc-950">
+    <div className="min-h-screen bg-gray-950 text-white">
       <Navbar />
 
       <main className="mx-auto max-w-2xl px-4 sm:px-6 pt-28 pb-16">
-        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50 mb-8">
+        <h1 className="text-2xl font-semibold text-white mb-8">
           Profile
         </h1>
 
         {/* ── Account Info ─────────────────────────────────────── */}
-        <section className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-6 mb-6">
-          <h2 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide mb-4">
+        <section className="rounded-xl border border-gray-800 bg-gray-900 p-6 mb-6">
+          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">
             Account
           </h2>
 
           <dl className="space-y-3">
             <div className="flex items-center justify-between">
-              <dt className="text-sm text-zinc-500 dark:text-zinc-400">Email</dt>
-              <dd className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
+              <dt className="text-sm text-gray-400">Email</dt>
+              <dd className="text-sm font-medium text-white">
                 {user?.email}
               </dd>
             </div>
             <div className="flex items-center justify-between">
-              <dt className="text-sm text-zinc-500 dark:text-zinc-400">User ID</dt>
-              <dd className="text-xs font-mono text-zinc-400 dark:text-zinc-500 truncate max-w-[200px]">
+              <dt className="text-sm text-gray-400">User ID</dt>
+              <dd className="text-xs font-mono text-gray-500 truncate max-w-[200px]">
                 {user?.id}
               </dd>
             </div>
@@ -154,11 +152,11 @@ export default function ProfilePage() {
         </section>
 
         {/* ── AI & Data Settings ───────────────────────────────── */}
-        <section className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-6 mb-6">
-          <h2 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide mb-1">
+        <section className="rounded-xl border border-gray-800 bg-gray-900 p-6 mb-6">
+          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-1">
             AI &amp; Data Settings
           </h2>
-          <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-6">
+          <p className="text-xs text-gray-500 mb-6">
             Control how AI features interact with your data. All settings default
             to on and can be changed at any time.
           </p>
@@ -169,11 +167,11 @@ export default function ProfilePage() {
               <div className="flex-1">
                 <label
                   htmlFor="toggle-enable-advisor"
-                  className="text-sm font-medium text-zinc-900 dark:text-zinc-50 cursor-pointer"
+                  className="text-sm font-medium text-white cursor-pointer"
                 >
                   Enable AI Advisor
                 </label>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                <p className="text-xs text-gray-400 mt-0.5">
                   Turns the AI financial advisor feature on or off entirely.
                   Disabling this also suspends the two settings below.
                 </p>
@@ -192,11 +190,11 @@ export default function ProfilePage() {
                   <div className="flex-1">
                     <label
                       htmlFor="toggle-data-access"
-                      className="text-sm font-medium text-zinc-900 dark:text-zinc-50 cursor-pointer"
+                      className="text-sm font-medium text-white cursor-pointer"
                     >
                       Allow AI to view my transactions
                     </label>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                    <p className="text-xs text-gray-400 mt-0.5">
                       Grants the AI advisor read access to your financial data
                       (net-worth snapshots). Turn off to keep your data private
                       while still using the advisor for general questions.
@@ -215,11 +213,11 @@ export default function ProfilePage() {
                   <div className="flex-1">
                     <label
                       htmlFor="toggle-categorization"
-                      className="text-sm font-medium text-zinc-900 dark:text-zinc-50 cursor-pointer"
+                      className="text-sm font-medium text-white cursor-pointer"
                     >
                       Auto-categorize my transactions
                     </label>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                    <p className="text-xs text-gray-400 mt-0.5">
                       Lets AI automatically label and group your transactions.
                       When off, you assign categories manually.
                     </p>
@@ -240,18 +238,18 @@ export default function ProfilePage() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-4 py-2 text-sm font-medium rounded bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 text-sm font-medium rounded bg-green-600 text-white hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {saving ? "Saving…" : "Save Preferences"}
             </button>
 
             {saveStatus === "success" && (
-              <span className="text-sm text-green-600 dark:text-green-400">
+              <span className="text-sm text-green-400">
                 Preferences saved.
               </span>
             )}
             {saveStatus === "error" && (
-              <span className="text-sm text-red-600 dark:text-red-400">
+              <span className="text-sm text-red-400">
                 Failed to save. Please try again.
               </span>
             )}
@@ -259,16 +257,16 @@ export default function ProfilePage() {
         </section>
 
         {/* ── Danger Zone ──────────────────────────────────────── */}
-        <section className="rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20 p-6">
-          <h2 className="text-sm font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide mb-1">
+        <section className="rounded-xl border border-red-900/40 bg-red-950/20 p-6">
+          <h2 className="text-sm font-semibold text-red-400 uppercase tracking-wide mb-1">
             Danger Zone
           </h2>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
+          <p className="text-xs text-gray-400 mb-4">
             Signing out will end your current session.
           </p>
           <button
             onClick={handleSignOut}
-            className="px-4 py-2 text-sm font-medium rounded border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+            className="px-4 py-2 text-sm font-medium rounded border border-red-800 text-red-400 hover:bg-red-900/30 transition-colors"
           >
             Sign Out
           </button>
