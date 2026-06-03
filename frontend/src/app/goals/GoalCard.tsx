@@ -9,6 +9,7 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
+  ReferenceArea,
   ReferenceLine,
   Legend,
 } from "recharts";
@@ -44,14 +45,14 @@ function buildScenarios(goal: Goal) {
     const contribution = base * m;
     if (goal.timeline === "flexible") {
       return calculateTimeToGoal({
-        principal: goal.currentSavings,
+        principal: 0,
         weeklyContribution: contribution,
         annualRate: goal.annualRate,
         target: goal.targetAmount,
       });
     } else {
       return calculateRequiredWeeklyContribution({
-        principal: goal.currentSavings,
+        principal: 0,
         annualRate: goal.annualRate,
         target: goal.targetAmount,
         years: goal.durationYears ?? 5,
@@ -121,7 +122,10 @@ export default function GoalCard({
 
   const option = GOAL_TYPE_OPTIONS.find((o) => o.value === goal.type);
   const progress = goal.targetAmount > 0 ? Math.min(1, goal.currentSavings / goal.targetAmount) : 0;
-  const progressPct = Math.round(progress * 100);
+  const progressPct = progress * 100;
+  const progressLabel = progressPct.toFixed(1);
+  const bandColor =
+    progressPct >= 100 ? "#4ade80" : progressPct >= 75 ? "#facc15" : "#22c55e";
 
   const primaryResult =
     goal.timeline === "flexible"
@@ -155,13 +159,26 @@ export default function GoalCard({
       `What advice do you have to help me reach this goal faster?`
   );
 
-  const { merged, labels, results } = buildScenarios(goal);
+  const { merged, labels, results, maxWeeks } = buildScenarios(goal);
 
   // Milestone reference values for the chart (25%, 50%, 75%, 100%)
   const milestones = [0.25, 0.5, 0.75, 1].map((pct) => ({
     value: goal.targetAmount * pct,
     label: `${pct * 100}%`,
   }));
+
+  // Vertical "how far along" shading: the week on the Current (from-zero) path
+  // where the balance reaches the user's actual current savings.
+  const currentChart = results[0]?.chartData ?? [];
+  const progressWeek =
+    goal.currentSavings > 0 && currentChart.length > 0
+      ? currentChart.find((p) => p.balance >= goal.currentSavings)?.week ??
+        currentChart[currentChart.length - 1].week
+      : 0;
+
+  // Year gridline ticks (every 52 weeks) for the numeric x-axis.
+  const yearTicks: number[] = [];
+  for (let w = 0; w <= maxWeeks; w += 52) yearTicks.push(w);
 
   return (
     <div
@@ -253,7 +270,7 @@ export default function GoalCard({
                 : "text-gray-300"
             }`}
           >
-            {progressPct}%
+            {progressLabel}%
           </span>
         </div>
         <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-800">
@@ -333,11 +350,15 @@ export default function GoalCard({
               <LineChart data={merged} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                 <XAxis
                   dataKey="week"
+                  type="number"
+                  domain={[0, maxWeeks]}
+                  ticks={yearTicks}
                   tick={{ fontSize: 10, fill: "#9ca3af" }}
-                  tickFormatter={(w: number) => (w % 52 === 0 ? `${w / 52}y` : "")}
+                  tickFormatter={(w: number) => `${Math.round(w / 52)}y`}
                   stroke="#374151"
                 />
                 <YAxis
+                  domain={[0, "auto"]}
                   tick={{ fontSize: 10, fill: "#9ca3af" }}
                   tickFormatter={(v: number) =>
                     v >= 1_000_000
@@ -361,6 +382,25 @@ export default function GoalCard({
                 <Legend
                   wrapperStyle={{ fontSize: 11, paddingTop: 4 }}
                 />
+
+                {/* Vertical "how far along" shading (week 0 → current savings) */}
+                {progressWeek > 0 && (
+                  <ReferenceArea
+                    x1={0}
+                    x2={progressWeek}
+                    fill={bandColor}
+                    fillOpacity={0.15}
+                    stroke={bandColor}
+                    strokeOpacity={0.3}
+                    strokeDasharray="3 3"
+                    label={{
+                      value: `Saved (${progressLabel}%)`,
+                      position: "insideTopLeft",
+                      fontSize: 9,
+                      fill: bandColor,
+                    }}
+                  />
+                )}
 
                 {/* Milestone reference lines (Idea 8) */}
                 {milestones.map((m) => (
