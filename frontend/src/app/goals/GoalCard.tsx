@@ -19,6 +19,12 @@ import {
   calculateRequiredWeeklyContribution,
 } from "./goalCalculate";
 import { Goal, GOAL_TYPE_OPTIONS } from "./goalTypes";
+import {
+  useContributionFrequency,
+  fromWeekly,
+  frequencyLabel,
+  frequencySuffix,
+} from "./goalFrequency";
 import { ChartDataPoint } from "@/app/types";
 
 interface GoalCardProps {
@@ -119,6 +125,8 @@ export default function GoalCard({
 }: GoalCardProps) {
   const [showChart, setShowChart] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const { frequency } = useContributionFrequency();
+  const freqSuffix = frequencySuffix(frequency);
 
   const option = GOAL_TYPE_OPTIONS.find((o) => o.value === goal.type);
   const progress = goal.targetAmount > 0 ? Math.min(1, goal.currentSavings / goal.targetAmount) : 0;
@@ -155,7 +163,7 @@ export default function GoalCard({
   const advisorPrompt = encodeURIComponent(
     `I have a ${option?.label ?? goal.type} goal called "${goal.name}". ` +
       `My target is ${formatMoney(goal.targetAmount)}, I currently have ${formatMoney(goal.currentSavings)} saved, ` +
-      `and I contribute ${formatMoney(goal.weeklyContribution)} per week. ` +
+      `and I contribute ${formatMoney(fromWeekly(goal.weeklyContribution, frequency))} ${frequencyLabel(frequency).toLowerCase()}. ` +
       `What advice do you have to help me reach this goal faster?`
   );
 
@@ -290,9 +298,9 @@ export default function GoalCard({
       {/* Stats row (Idea 1) */}
       <div className="grid grid-cols-3 gap-3 text-center">
         <div className="rounded-lg bg-gray-800/60 px-2 py-2.5">
-          <p className="text-xs text-gray-500">Weekly</p>
+          <p className="text-xs text-gray-500">{frequencyLabel(frequency)}</p>
           <p className="mt-0.5 text-sm font-medium text-white">
-            {formatMoney(goal.weeklyContribution)}
+            {formatMoney(fromWeekly(goal.weeklyContribution, frequency))}
           </p>
         </div>
         <div className="rounded-lg bg-gray-800/60 px-2 py-2.5">
@@ -336,7 +344,8 @@ export default function GoalCard({
                     {label}
                   </div>
                   <div className="mt-0.5 text-xs text-white font-medium">
-                    {formatMoney(contribution)}/wk
+                    {formatMoney(fromWeekly(contribution, frequency))}
+                    {freqSuffix}
                   </div>
                   <div className="mt-0.5 text-xs text-gray-400">{etaSummary}</div>
                 </div>

@@ -6,6 +6,13 @@ import { useAppSelector } from "@/lib/store/hooks";
 import { Goal, GoalType, GOAL_TYPE_OPTIONS, GOAL_TYPE_TIPS, TimelineType } from "./goalTypes";
 import { formatMoney } from "@/app/format";
 import { calculateTimeToGoal, calculateRequiredWeeklyContribution } from "./goalCalculate";
+import {
+  useContributionFrequency,
+  fromWeekly,
+  toWeekly,
+  frequencyLabel,
+  frequencySuffix,
+} from "./goalFrequency";
 
 interface GoalFormProps {
   initial?: Goal;
@@ -19,6 +26,8 @@ function generateId() {
 
 export default function GoalForm({ initial, onSave, onCancel }: GoalFormProps) {
   const transactions = useAppSelector((s) => s.transactions.transactions);
+  const { frequency } = useContributionFrequency();
+  const freqSuffix = frequencySuffix(frequency);
 
   // Derive spending stats from transactions
   const spendingSuggestion = (() => {
@@ -106,6 +115,19 @@ export default function GoalForm({ initial, onSave, onCancel }: GoalFormProps) {
       setWeeklyContribution(Math.round(spendingSuggestion.weeklySavings));
     }
   }, [spendingSuggestion, initial, weeklyContribution]);
+
+  // The contribution is stored canonically as a weekly amount, but displayed and
+  // entered in whichever frequency the user has selected on the goals page.
+  const displayContribution =
+    weeklyContribution != null ? fromWeekly(weeklyContribution, frequency) : null;
+
+  function handleContributionChange(value: number | null) {
+    setWeeklyContribution(value == null ? null : toWeekly(value, frequency));
+  }
+
+  const suggestedWeekly = spendingSuggestion?.weeklySavings ?? null;
+  const suggestedForFrequency =
+    suggestedWeekly != null ? fromWeekly(suggestedWeekly, frequency) : null;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -357,22 +379,23 @@ export default function GoalForm({ initial, onSave, onCancel }: GoalFormProps) {
 
         <div>
           <label className="mb-1 block text-sm text-gray-300">
-            Weekly contribution
-            {spendingSuggestion?.weeklySavings != null && (
+            {frequencyLabel(frequency)} contribution
+            {suggestedForFrequency != null && (
               <button
                 type="button"
-                onClick={() => setWeeklyContribution(Math.round(spendingSuggestion.weeklySavings!))}
+                onClick={() => setWeeklyContribution(suggestedWeekly!)}
                 className="ml-2 text-xs text-green-400 hover:text-green-300 underline"
               >
-                use suggested {formatMoney(Math.round(spendingSuggestion.weeklySavings))}/wk
+                use suggested {formatMoney(Math.round(suggestedForFrequency))}
+                {freqSuffix}
               </button>
             )}
           </label>
-          <MoneyInput value={weeklyContribution} onChange={setWeeklyContribution} />
+          <MoneyInput value={displayContribution} onChange={handleContributionChange} />
           {timeline === "flexible" && weeklyContribution && weeklyContribution > 0 && targetAmount && targetAmount > 0 && (
             <p className="mt-1.5 text-xs text-blue-300">
               {timelineEstimate
-                ? `→ At ${formatMoney(weeklyContribution)}/week you'd reach your goal in ~${formatTimelineEstimate(timelineEstimate)}`
+                ? `→ At ${formatMoney(displayContribution ?? 0)}${freqSuffix} you'd reach your goal in ~${formatTimelineEstimate(timelineEstimate)}`
                 : "→ This contribution won't reach the goal (too low)"}
             </p>
           )}
@@ -433,7 +456,7 @@ export default function GoalForm({ initial, onSave, onCancel }: GoalFormProps) {
             />
             {contributionEstimate && targetAmount && targetAmount > 0 && durationYears && parseFloat(durationYears) > 0 && (
               <p className="mt-1.5 text-xs text-blue-300">
-                → You&apos;ll need ~{formatMoney(Math.ceil(contributionEstimate.weeklyContribution))}/week to reach your goal in {durationYears} year{parseFloat(durationYears) !== 1 ? "s" : ""}
+                → You&apos;ll need ~{formatMoney(Math.ceil(fromWeekly(contributionEstimate.weeklyContribution, frequency)))}{freqSuffix} to reach your goal in {durationYears} year{parseFloat(durationYears) !== 1 ? "s" : ""}
               </p>
             )}
           </div>

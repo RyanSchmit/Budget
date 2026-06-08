@@ -8,6 +8,13 @@ import GoalCard from "./GoalCard";
 import GoalForm from "./GoalForm";
 import { formatMoney } from "@/app/format";
 import { calculateTimeToGoal } from "./goalCalculate";
+import {
+  GoalFrequencyProvider,
+  useContributionFrequency,
+  fromWeekly,
+  frequencyLabel,
+  FREQUENCY_OPTIONS,
+} from "./goalFrequency";
 import LoadTransactionsClient from "@/app/transactions/LoadTransactionsClient";
 import { useAppDispatch } from "@/lib/store/hooks";
 import { loadTransactionsSuccess } from "@/lib/store/transactionsSlice";
@@ -61,8 +68,39 @@ function SortableGoalCard({
   );
 }
 
+function FrequencyToggle() {
+  const { frequency, setFrequency } = useContributionFrequency();
+  return (
+    <div className="inline-flex rounded-lg border border-gray-700 bg-gray-900 p-0.5">
+      {FREQUENCY_OPTIONS.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => setFrequency(o.value)}
+          className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+            frequency === o.value
+              ? "bg-green-600 text-white"
+              : "text-gray-400 hover:text-white"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function GoalQuestions() {
+  return (
+    <GoalFrequencyProvider>
+      <GoalsContent />
+    </GoalFrequencyProvider>
+  );
+}
+
+function GoalsContent() {
   const dispatch = useAppDispatch();
+  const { frequency } = useContributionFrequency();
   const { goals, loaded, addGoal, updateGoal, removeGoal, reorderGoals } = useGoals();
   const [showForm, setShowForm] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
@@ -147,24 +185,27 @@ export default function GoalQuestions() {
 
       <div className="mx-auto max-w-5xl px-4 pt-20 pb-20">
         {/* Page header */}
-        <div className="mt-8 mb-8 flex items-center justify-between">
+        <div className="mt-8 mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold">Goals</h1>
             <p className="mt-1 text-sm text-gray-400">
               Plan and track your financial goals
             </p>
           </div>
-          {!showForm && (
-            <button
-              onClick={() => {
-                setEditingGoal(null);
-                setShowForm(true);
-              }}
-              className="rounded-lg bg-green-600 px-5 py-2.5 text-sm font-medium transition hover:bg-green-500"
-            >
-              + Add Goal
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            <FrequencyToggle />
+            {!showForm && (
+              <button
+                onClick={() => {
+                  setEditingGoal(null);
+                  setShowForm(true);
+                }}
+                className="rounded-lg bg-green-600 px-5 py-2.5 text-sm font-medium transition hover:bg-green-500"
+              >
+                + Add Goal
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Summary stats (only if there are goals) */}
@@ -179,8 +220,12 @@ export default function GoalQuestions() {
               <p className="mt-1 text-2xl font-bold text-green-400">{completedGoals}</p>
             </div>
             <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Weekly commitment</p>
-              <p className="mt-1 text-2xl font-bold">{formatMoney(totalWeekly)}</p>
+              <p className="text-xs text-gray-500 uppercase tracking-wide">
+                {frequencyLabel(frequency)} commitment
+              </p>
+              <p className="mt-1 text-2xl font-bold">
+                {formatMoney(fromWeekly(totalWeekly, frequency))}
+              </p>
             </div>
             <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
               <p className="text-xs text-gray-500 uppercase tracking-wide">Nearest deadline</p>
