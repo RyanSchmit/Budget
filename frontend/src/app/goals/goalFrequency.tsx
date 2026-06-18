@@ -2,13 +2,14 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
-export type ContributionFrequency = "weekly" | "biweekly" | "monthly";
+export type ContributionFrequency = "weekly" | "biweekly" | "monthly" | "yearly";
 
 /** Number of weeks in one contribution period for each frequency. */
 const WEEKS_PER_PERIOD: Record<ContributionFrequency, number> = {
   weekly: 1,
   biweekly: 2,
   monthly: 52 / 12,
+  yearly: 52,
 };
 
 export const FREQUENCY_OPTIONS: Array<{
@@ -20,6 +21,7 @@ export const FREQUENCY_OPTIONS: Array<{
   { value: "weekly", label: "Weekly", short: "Weekly", suffix: "/wk" },
   { value: "biweekly", label: "Bi-weekly", short: "Bi-weekly", suffix: "/2wk" },
   { value: "monthly", label: "Monthly", short: "Monthly", suffix: "/mo" },
+  { value: "yearly", label: "Yearly", short: "Yearly", suffix: "/yr" },
 ];
 
 /** Convert a canonical weekly amount into the given frequency's per-period amount. */
@@ -55,7 +57,12 @@ export function GoalFrequencyProvider({ children }: { children: ReactNode }) {
   // Restore saved preference on mount (client only).
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved === "weekly" || saved === "biweekly" || saved === "monthly") {
+    if (
+      saved === "weekly" ||
+      saved === "biweekly" ||
+      saved === "monthly" ||
+      saved === "yearly"
+    ) {
       setFrequencyState(saved);
     }
   }, []);
