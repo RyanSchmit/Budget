@@ -10,6 +10,7 @@ import { AccountItem, NetWorthHistoryItem } from "../types";
 import type { Transaction } from "../types";
 import { loadTransactions } from "../transactions/loadTransactions";
 import {
+  fetchAllSavedNetWorthHistory,
   fetchLatestNetWorthSnapshot,
   saveNetWorthSnapshot,
 } from "./netWorthDb";
@@ -27,8 +28,6 @@ export default function NetWorth() {
 
   const [snapshotDate, setSnapshotDate] = useState<string | null>(null);
 
-  // 🔑 Single source of truth for chart data
-  const [history, setHistory] = useState<NetWorthHistoryItem[]>([]);
   const [savedHistory, setSavedHistory] = useState<NetWorthHistoryItem[]>([]);
   const [derivedHistory, setDerivedHistory] = useState<NetWorthHistoryItem[]>(
     [],
@@ -46,11 +45,17 @@ export default function NetWorth() {
     fetchTransactions();
   }, []);
 
-  // Load most recent saved net worth snapshot (accounts + amounts)
+  // Load saved snapshots for form prefill and chart history
   useEffect(() => {
-    const loadSnapshot = async () => {
+    const loadSnapshots = async () => {
       try {
-        const snapshot = await fetchLatestNetWorthSnapshot();
+        const [snapshot, history] = await Promise.all([
+          fetchLatestNetWorthSnapshot(),
+          fetchAllSavedNetWorthHistory(),
+        ]);
+
+        setSavedHistory(history);
+
         if (!snapshot) return;
 
         const checking = snapshot.accounts.find((a) => a.key === "checking");
@@ -82,7 +87,7 @@ export default function NetWorth() {
       }
     };
 
-    loadSnapshot();
+    loadSnapshots();
   }, []);
 
   /* -------------------- Totals -------------------- */
@@ -236,6 +241,16 @@ export default function NetWorth() {
 
   const mergedHistory = mergeHistories(savedHistory, derivedHistory);
 
+  const snapshotDates = useMemo(
+    () => new Set(savedHistory.map((h) => h.date)),
+    [savedHistory],
+  );
+
+  const today = new Date().toISOString().split("T")[0];
+  const todaySaved = savedHistory.find((h) => h.date === today);
+  const isAlreadySavedToday =
+    todaySaved != null && todaySaved.value === netWorth;
+
   /* -------------------- Render -------------------- */
 
   return (
@@ -282,13 +297,9 @@ export default function NetWorth() {
             <button
               type="button"
               onClick={saveNetWorth}
-              disabled={
-                history.length > 0 &&
-                history[history.length - 1].value === netWorth
-              }
+              disabled={isAlreadySavedToday}
               className={`px-4 py-2 bg-green-600 text-white rounded-md text-sm ${
-                history.length > 0 &&
-                history[history.length - 1].value === netWorth
+                isAlreadySavedToday
                   ? "opacity-50 cursor-not-allowed"
                   : "hover:bg-green-500"
               }`}
@@ -310,7 +321,7 @@ export default function NetWorth() {
 
         {/* Chart */}
         <div className="w-full max-w-4xl pb-4 pr-4 sm:pr-6">
-          <NetWorthChart data={mergedHistory} />
+          <NetWorthChart data={mergedHistory} snapshotDates={snapshotDates} />
         </div>
       </main>
     </div>

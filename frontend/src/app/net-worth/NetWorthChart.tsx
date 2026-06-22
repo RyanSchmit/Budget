@@ -13,6 +13,7 @@ import { NetWorthHistoryItem } from "../types";
 
 interface NetWorthChartProps {
   data: NetWorthHistoryItem[];
+  snapshotDates?: Set<string>;
 }
 
 const RANGES = [
@@ -31,7 +32,38 @@ function filterByRange(data: NetWorthHistoryItem[], months: number | null) {
   return data.filter((d) => new Date(d.date) >= cutoff);
 }
 
-export default function NetWorthChart({ data }: NetWorthChartProps) {
+function filterSnapshotDates(
+  dates: Set<string> | undefined,
+  data: NetWorthHistoryItem[],
+): Set<string> | undefined {
+  if (!dates) return undefined;
+  const visibleDates = new Set(data.map((d) => d.date));
+  return new Set([...dates].filter((d) => visibleDates.has(d)));
+}
+
+function SnapshotDot({
+  cx,
+  cy,
+  active,
+}: {
+  cx?: number;
+  cy?: number;
+  active?: boolean;
+}) {
+  if (cx == null || cy == null) return null;
+  return (
+    <circle
+      cx={cx}
+      cy={cy}
+      r={active ? 7 : 5}
+      fill="#22c55e"
+      stroke="#ffffff"
+      strokeWidth={2}
+    />
+  );
+}
+
+export default function NetWorthChart({ data, snapshotDates }: NetWorthChartProps) {
   const [fullscreen, setFullscreen] = useState(false);
   const [range, setRange] = useState<RangeLabel>("All");
 
@@ -91,6 +123,7 @@ export default function NetWorthChart({ data }: NetWorthChartProps) {
       {(() => {
         const selectedMonths = RANGES.find((r) => r.label === range)?.months ?? null;
         const visibleData = filterByRange(data, selectedMonths);
+        const visibleSnapshotDates = filterSnapshotDates(snapshotDates, visibleData);
         return visibleData.length > 1 ? (
         <ResponsiveContainer width="100%" height={fullscreen ? "90%" : 300}>
           <LineChart data={visibleData} margin={{ right: 50 }}>
@@ -129,7 +162,16 @@ export default function NetWorthChart({ data }: NetWorthChartProps) {
               dataKey="value"
               stroke="#22c55e"
               strokeWidth={3}
-              dot={false}
+              dot={(props) => {
+                const { cx, cy, payload } = props;
+                if (!visibleSnapshotDates?.has(payload.date)) return false;
+                return <SnapshotDot cx={cx} cy={cy} />;
+              }}
+              activeDot={(props) => {
+                const { cx, cy, payload } = props;
+                if (!visibleSnapshotDates?.has(payload.date)) return false;
+                return <SnapshotDot cx={cx} cy={cy} active />;
+              }}
             />
           </LineChart>
         </ResponsiveContainer>
