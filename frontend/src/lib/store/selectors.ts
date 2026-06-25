@@ -87,7 +87,7 @@ export const selectUniquePendingTransactions = createSelector(
   (pending) => {
     const seen = new Set<string>();
     return pending.filter((t) => {
-      const key = `${t.date}|${t.description}|${t.amount}`;
+      const key = `${t.date}|${t.description.trim()}|${Number(t.amount)}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;

@@ -7,16 +7,22 @@ import {
 } from "../../lib/api/client";
 import { useMemo, useState } from "react";
 
+function keyOf(t: { date: string; description: string; amount: number }) {
+  return `${t.date}|${t.description.trim()}|${Number(t.amount)}`;
+}
+
 export default function SaveButton({
   transactions,
   baselineById,
   onSaved,
   onCreated,
+  onSkipped,
 }: {
   transactions: Transaction[];
   baselineById: Record<string, string>;
   onSaved?: (saved: Transaction[]) => void;
   onCreated?: (oldId: string, newTransaction: Transaction) => void;
+  onSkipped?: (oldId: string) => void;
 }) {
   const [saving, setSaving] = useState(false);
 
@@ -71,15 +77,28 @@ export default function SaveButton({
             amount: t.amount,
           })),
         );
-        created.forEach((record, idx) => {
-          onCreated?.(batch[idx].id, {
-            id: record.transact_id,
-            date: record.date,
-            description: record.description,
-            category: record.category,
-            amount: record.amount,
-          });
-        });
+
+        // The backend silently skips duplicates, so it may return fewer rows
+        // than we sent. Match returned rows back to their temp batch item by
+        // key, then treat any unmatched temp row as a skipped duplicate.
+        const createdByKey = new Map(
+          created.map((record) => [keyOf(record), record] as const),
+        );
+        for (const t of batch) {
+          const record = createdByKey.get(keyOf(t));
+          if (record) {
+            createdByKey.delete(keyOf(t));
+            onCreated?.(t.id, {
+              id: record.transact_id,
+              date: record.date,
+              description: record.description,
+              category: record.category,
+              amount: record.amount,
+            });
+          } else {
+            onSkipped?.(t.id);
+          }
+        }
       }
 
       onSaved?.(transactions);

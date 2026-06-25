@@ -7,7 +7,7 @@ export function fingerprintTransaction(t: Transaction) {
 }
 
 function getTransactionKey(t: Transaction) {
-  return `${t.date}|${t.description}|${t.amount}`;
+  return `${t.date}|${t.description.trim()}|${Number(t.amount)}`;
 }
 
 interface TransactionsState {

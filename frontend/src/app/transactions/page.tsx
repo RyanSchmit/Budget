@@ -23,6 +23,7 @@ import {
   updateTransaction,
   updateBaselineForSaved,
   replaceTransaction,
+  removeTransactionsByIds,
   setTransactions,
   setPredictionScores,
 } from "../../lib/store/transactionsSlice";
@@ -372,6 +373,9 @@ export default function Transactions() {
                         }}
                         onCreated={(oldId, newTransaction) => {
                           dispatch(replaceTransaction({ oldId, newTransaction }));
+                        }}
+                        onSkipped={(oldId) => {
+                          dispatch(removeTransactionsByIds([oldId]));
                         }}
                       />
 

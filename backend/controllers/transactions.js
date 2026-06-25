@@ -58,12 +58,29 @@ exports.create = async (req, res, next) => {
 
     const { data, error } = await supabase
       .from("transactions")
-      .insert({ user_id: req.user.id, date, description: description.trim(), category: category.trim(), amount })
-      .select()
-      .single();
+      .upsert(
+        { user_id: req.user.id, date, description: description.trim(), category: category.trim(), amount },
+        { onConflict: "user_id,date,description,amount", ignoreDuplicates: true },
+      )
+      .select();
 
     if (error) throw error;
-    res.status(201).json(data);
+
+    // Duplicate of an existing transaction — nothing inserted. Return the existing row.
+    if (!data || data.length === 0) {
+      const { data: existing } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("user_id", req.user.id)
+        .eq("date", date)
+        .eq("description", description.trim())
+        .eq("amount", amount)
+        .limit(1)
+        .single();
+      return res.status(200).json(existing);
+    }
+
+    res.status(201).json(data[0]);
   } catch (err) {
     next(err);
   }
@@ -207,7 +224,10 @@ exports.bulkCreate = async (req, res, next) => {
 
     const { data, error } = await supabase
       .from("transactions")
-      .insert(rows)
+      .upsert(rows, {
+        onConflict: "user_id,date,description,amount",
+        ignoreDuplicates: true,
+      })
       .select();
 
     if (error) throw error;
