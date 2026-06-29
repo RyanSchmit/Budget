@@ -1,7 +1,7 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 interface UiState {
-  activeTab: "transactions" | "keywords";
+  activeTab: "transactions" | "keywords" | "accrued";
 }
 
 const initialState: UiState = {
@@ -12,7 +12,10 @@ const uiSlice = createSlice({
   name: "ui",
   initialState,
   reducers: {
-    setActiveTab(state, action: PayloadAction<"transactions" | "keywords">) {
+    setActiveTab(
+      state,
+      action: PayloadAction<"transactions" | "keywords" | "accrued">,
+    ) {
       state.activeTab = action.payload;
     },
   },

@@ -5,6 +5,7 @@ import Navbar from "../Navbar";
 import CategoryPieChart from "../insights/PieChart";
 import SankeyDiagram from "../insights/SankeyDiagram";
 import CategoryBudgetManager from "../insights/CategoryBudgetManager";
+import NetIncomeChart from "../insights/NetIncomeChart";
 import { useAppSelector } from "../../lib/store/hooks";
 import {
   selectTransactions,
@@ -16,7 +17,7 @@ type PeriodOption = "3M" | "6M" | "1Y" | "YTD" | "ALL";
 
 export default function Home() {
   const [activeView, setActiveView] = useState<
-    "sankey" | "pie" | "budget-limits"
+    "sankey" | "pie" | "budget-limits" | "net-income"
   >("pie");
 
   const transactions = useAppSelector(selectTransactions);
@@ -201,6 +202,17 @@ export default function Home() {
             >
               Budget Limits
             </button>
+
+            <button
+              onClick={() => setActiveView("net-income")}
+              className={`px-6 py-2 rounded-lg text-sm font-medium transition ${
+                activeView === "net-income"
+                  ? "bg-red-600 text-white"
+                  : "bg-white/10 hover:bg-white/20 text-white/70"
+              }`}
+            >
+              Net Income
+            </button>
           </div>
 
           {/* Filters */}
@@ -223,6 +235,8 @@ export default function Home() {
             </div>
           ) : activeView === "budget-limits" ? (
             <CategoryBudgetManager transactions={transactions} />
+          ) : activeView === "net-income" ? (
+            <NetIncomeChart transactions={transactions} />
           ) : !showFilters && transactions.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <p className="text-gray-400">No transactions found.</p>

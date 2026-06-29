@@ -8,6 +8,7 @@ import LoadTransactionsClient from "./LoadTransactionsClient";
 import { FilterBar } from "./filter";
 import TransactionsTable from "./table";
 import KeywordsTab from "./keywords/KeywordsTab";
+import AccruedManager from "./AccruedManager";
 import SelectionKeywordToolbar from "./keywords/SelectionKeywordToolbar";
 import SaveButton from "./save";
 import DeleteSelectedButton from "./delete";
@@ -303,6 +304,19 @@ export default function Transactions() {
               >
                 Keywords
               </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "accrued"}
+                onClick={() => dispatch(setActiveTab("accrued"))}
+                className={`rounded-t-md px-4 py-2 text-sm font-medium ${
+                  activeTab === "accrued"
+                    ? "bg-gray-800 text-white"
+                    : "text-gray-400 hover:text-white hover:bg-gray-800/60"
+                }`}
+              >
+                Accrued
+              </button>
             </nav>
           </div>
 
@@ -404,9 +418,13 @@ export default function Transactions() {
                 }}
               />
             </>
-          ) : (
+          ) : activeTab === "keywords" ? (
             <div className="mt-6">
               <KeywordsTab />
+            </div>
+          ) : (
+            <div className="mt-6">
+              <AccruedManager />
             </div>
           )}
         </div>
