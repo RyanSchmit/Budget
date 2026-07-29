@@ -41,6 +41,37 @@ function filterSnapshotDates(
   return new Set([...dates].filter((d) => visibleDates.has(d)));
 }
 
+function formatTooltipDate(date: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  if (day) return `${month}/${day}/${year}`;
+  return `${month}/${year}`;
+}
+
+function CustomTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: { value: number }[];
+  label?: string;
+}) {
+  if (!active || !payload || payload.length === 0 || label == null) return null;
+  const value = payload[0].value;
+  return (
+    <div className="bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm shadow-lg">
+      <p className="text-white">
+        Value:{" "}
+        {new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+        }).format(value)}
+      </p>
+      <p className="text-gray-300">Date: {formatTooltipDate(label)}</p>
+    </div>
+  );
+}
+
 function SnapshotDot({
   cx,
   cy,
@@ -147,16 +178,7 @@ export default function NetWorthChart({ data, snapshotDates }: NetWorthChartProp
                 }).format(val)
               }
             />
-            <Tooltip
-              formatter={(val) =>
-                typeof val === "number"
-                  ? new Intl.NumberFormat("en-US", {
-                      style: "currency",
-                      currency: "USD",
-                    }).format(val)
-                  : ""
-              }
-            />
+            <Tooltip content={<CustomTooltip />} />
             <Line
               type="monotone"
               dataKey="value"

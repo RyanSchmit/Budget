@@ -18,9 +18,42 @@ interface CategoryBudgetManagerProps {
 
 type SavedLimits = Record<string, { id: string; monthlyLimit: number }>;
 
-const TRACKED_CATEGORIES = defaultCategories.filter(
-  (c) => c !== "Income" && c !== "N/A",
-);
+const EXCLUDED_CATEGORIES = new Set(["Income", "N/A"]);
+
+/**
+ * Build the list of budgetable categories from the curated default list plus any
+ * category that actually appears on a transaction or already has a saved limit.
+ * This keeps the default ordering while surfacing categories (e.g. "Gas") that
+ * come from keyword rules / imports but were never in the hardcoded list.
+ */
+function buildTrackedCategories(
+  transactions: Transaction[],
+  savedLimits: SavedLimits,
+): string[] {
+  const ordered: string[] = [];
+  const seen = new Set<string>();
+
+  const add = (category: string) => {
+    const c = category.trim();
+    if (!c || EXCLUDED_CATEGORIES.has(c) || seen.has(c)) return;
+    seen.add(c);
+    ordered.push(c);
+  };
+
+  for (const c of defaultCategories) add(c);
+
+  const extra = new Set<string>();
+  for (const t of transactions) {
+    const c = (t.category ?? "").trim();
+    if (c && !EXCLUDED_CATEGORIES.has(c) && !seen.has(c)) extra.add(c);
+  }
+  for (const c of Object.keys(savedLimits)) {
+    if (c && !EXCLUDED_CATEGORIES.has(c) && !seen.has(c)) extra.add(c);
+  }
+  for (const c of Array.from(extra).sort((a, b) => a.localeCompare(b))) add(c);
+
+  return ordered;
+}
 
 const HIDDEN_KEY = "budget-hidden-categories";
 
@@ -76,14 +109,19 @@ export default function CategoryBudgetManager({
     [transactions],
   );
 
+  const trackedCategories = useMemo(
+    () => buildTrackedCategories(transactions, savedLimits),
+    [transactions, savedLimits],
+  );
+
   const visibleCategories = useMemo(
-    () => TRACKED_CATEGORIES.filter((c) => !hiddenCategories.has(c)),
-    [hiddenCategories],
+    () => trackedCategories.filter((c) => !hiddenCategories.has(c)),
+    [trackedCategories, hiddenCategories],
   );
 
   const categoryStats = useMemo(() => {
     const stats: Record<string, { min: number; avg: number; max: number } | null> = {};
-    for (const category of TRACKED_CATEGORIES) {
+    for (const category of trackedCategories) {
       const byMonth = getMonthlySpending(expenseTransactions, category);
       const values = Object.values(byMonth);
       if (values.length === 0) {
@@ -97,7 +135,7 @@ export default function CategoryBudgetManager({
       }
     }
     return stats;
-  }, [expenseTransactions]);
+  }, [expenseTransactions, trackedCategories]);
 
   const overallStats = useMemo(() => {
     const totals: Record<string, number> = {};
