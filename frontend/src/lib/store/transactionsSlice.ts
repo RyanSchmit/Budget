@@ -40,6 +40,11 @@ const transactionsSlice = createSlice({
     setPendingTransactions(state, action: PayloadAction<Transaction[]>) {
       state.pendingTransactions = action.payload;
     },
+    addTransaction(state, action: PayloadAction<Transaction>) {
+      // Prepend so the new manual entry is immediately visible. No baseline
+      // entry is set, so it is treated as dirty/unsaved until the user saves.
+      state.transactions = [action.payload, ...state.transactions];
+    },
     loadTransactionsSuccess(state, action: PayloadAction<Transaction[]>) {
       state.transactions = action.payload;
       state.selectedIds = [];
@@ -154,6 +159,7 @@ const transactionsSlice = createSlice({
 export const {
   setTransactions,
   setPendingTransactions,
+  addTransaction,
   loadTransactionsSuccess,
   applyFreshBaseline,
   updateBaselineForSaved,

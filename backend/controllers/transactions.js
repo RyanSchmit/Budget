@@ -17,7 +17,11 @@ exports.list = async (req, res, next) => {
       .from("transactions")
       .select("*", { count: "exact" })
       .eq("user_id", req.user.id)
+      // Secondary sort on the unique key so pagination is deterministic.
+      // Ordering by `date` alone lets rows sharing a date shuffle between
+      // pages, producing duplicate/missing rows across paged requests.
       .order("date", { ascending: false })
+      .order("transact_id", { ascending: true })
       .range(from, to);
 
     if (error) throw error;

@@ -37,17 +37,51 @@ const majorCategoryMap: Record<string, string> = {
   "N/A": "Other",
 };
 
+// Known employers: map a keyword found in the description to the display name
+// used for the company that paid you. Add employers here for clean labels.
+const employerMap: Record<string, string> = {
+  calmatters: "CalMatters",
+};
+
+// Pull a readable company name out of a raw bank payroll description, stripping
+// the boilerplate ("DIRECT DEP", "PPD ID", reference numbers, etc.) that banks
+// wrap around the actual employer name.
+const extractCompanyName = (description: string): string | null => {
+  const cleaned = description
+    .replace(
+      /\b(direct\s+dep(osit)?|payroll|salary|des|ppd|ccd|indn|orig(inator)?|co(mpany)?\s*id|co\s+name|type|ach|credit|dep(osit)?|pmt|payment|trn|id)\b/gi,
+      " ",
+    )
+    .replace(/[:#*].*$/, " ") // drop trailing reference / id segments
+    .replace(/\d{3,}/g, " ") // drop account / reference numbers
+    .replace(/[^a-zA-Z& ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (cleaned.length < 2) return null;
+
+  return cleaned
+    .split(" ")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+};
+
 // Categorize income by source
 const getIncomeSource = (description: string): string => {
   const desc = description.toLowerCase();
   if (
     desc.includes("payroll") ||
     desc.includes("salary") ||
-    desc.includes("calmatters") ||
     desc.includes("mobile deposit") ||
-    desc.includes("interest payment")
+    desc.includes("interest payment") ||
+    Object.keys(employerMap).some((keyword) => desc.includes(keyword))
   ) {
-    return "Salary";
+    // Name the company that paid you rather than a generic "Salary" bucket.
+    const knownKeyword = Object.keys(employerMap).find((keyword) =>
+      desc.includes(keyword),
+    );
+    if (knownKeyword) return employerMap[knownKeyword];
+    return extractCompanyName(description) ?? "Salary";
   }
   if (desc.includes("venmo")) {
     return "Venmo";

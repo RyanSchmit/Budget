@@ -3,7 +3,7 @@ import Papa from "papaparse";
 import { Transaction } from "../types";
 import { useState } from "react";
 
-const normalizeDate = (raw: string): string => {
+export const normalizeDate = (raw: string): string => {
   if (!raw) return raw;
   // Already YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;

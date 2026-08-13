@@ -4,6 +4,7 @@ import Navbar from "../Navbar";
 import { useCallback, useRef } from "react";
 import { Transaction } from "../types";
 import FileUI from "./csv";
+import ManualEntryForm from "./ManualEntryForm";
 import LoadTransactionsClient from "./LoadTransactionsClient";
 import { FilterBar } from "./filter";
 import TransactionsTable from "./table";
@@ -329,13 +330,14 @@ export default function Transactions() {
                   }}
                 />
 
-                {/* CSV upload */}
-                <div className="mt-4">
+                {/* CSV upload + manual entry */}
+                <div className="mt-4 flex flex-wrap items-center gap-6">
                   <FileUI
                     pendingCount={uniquePendingTransactions.length}
                     onParsed={(txs) => dispatch(setPendingTransactions(txs))}
                     onAdd={() => dispatch(addPendingToTransactions())}
                   />
+                  <ManualEntryForm />
                 </div>
 
                 {/* Filter bar + action buttons — same row */}
