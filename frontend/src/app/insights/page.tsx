@@ -6,6 +6,7 @@ import CategoryPieChart from "../insights/PieChart";
 import SankeyDiagram from "../insights/SankeyDiagram";
 import CategoryBudgetManager from "../insights/CategoryBudgetManager";
 import NetIncomeChart from "../insights/NetIncomeChart";
+import { calendarDate, localIsoDate } from "../summary";
 import { useAppSelector } from "../../lib/store/hooks";
 import {
   selectTransactions,
@@ -32,20 +33,19 @@ export default function Home() {
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>("3M");
 
   const availableYears = useMemo(() => {
-    const years = new Set(
-      transactions.map((t) => new Date(t.date).getFullYear()),
-    );
+    const years = new Set<number>();
+    for (const t of transactions) {
+      const year = calendarDate(t.date)?.year;
+      if (year !== undefined) years.add(year);
+    }
     return Array.from(years).sort((a, b) => b - a);
   }, [transactions]);
 
   const filteredTransactions = useMemo(() => {
     if (filterMode === "month") {
       return transactions.filter((t) => {
-        const date = new Date(t.date);
-        return (
-          date.getFullYear() === selectedYear &&
-          date.getMonth() + 1 === selectedMonth
-        );
+        const date = calendarDate(t.date);
+        return date?.year === selectedYear && date?.month === selectedMonth;
       });
     }
 
@@ -70,7 +70,13 @@ export default function Home() {
       );
     }
 
-    return transactions.filter((t) => new Date(t.date) >= cutoff);
+    // Compared as calendar days rather than instants, so a transaction dated on
+    // the cutoff is kept no matter which side of UTC the viewer sits on.
+    const cutoffDay = localIsoDate(cutoff);
+    return transactions.filter((t) => {
+      const iso = calendarDate(t.date)?.iso;
+      return iso !== undefined && iso >= cutoffDay;
+    });
   }, [transactions, filterMode, selectedYear, selectedMonth, selectedPeriod]);
 
   const monthNames = [

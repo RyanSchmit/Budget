@@ -4,6 +4,7 @@ import MoneyInput from "../MoneyInput";
 import { useMemo, useState } from "react";
 import { Transaction } from "../types";
 import { formatMoney } from "../format";
+import { summarize } from "../summary";
 import { useAppDispatch, useAppSelector } from "../../lib/store/hooks";
 import {
   selectFilteredTransactions,
@@ -97,12 +98,8 @@ export default function TransactionsTable({ onCategoryChange }: Props) {
     });
   }, [transactions, sortConfig]);
 
-  const totalAmount = useMemo(
-    () =>
-      sortedTransactions.reduce(
-        (sum, t) => sum + (typeof t.amount === "number" ? t.amount : 0),
-        0,
-      ),
+  const { net } = useMemo(
+    () => summarize(sortedTransactions),
     [sortedTransactions],
   );
 
@@ -325,10 +322,10 @@ export default function TransactionsTable({ onCategoryChange }: Props) {
               <td className="sticky bottom-0 z-10 bg-gray-900 px-4 py-3" />
               <td className="sticky bottom-0 z-10 bg-gray-900 px-4 py-3" />
               <td className="sticky bottom-0 z-10 bg-gray-900 px-4 py-3">
-                Total
+                Net
               </td>
               <td className="sticky bottom-0 z-10 bg-gray-900 px-4 py-3 text-right whitespace-nowrap">
-                {formatMoney(totalAmount)}
+                {formatMoney(net)}
               </td>
             </tr>
           </tfoot>

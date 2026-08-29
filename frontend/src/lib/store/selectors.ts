@@ -5,6 +5,7 @@ import {
   areAllVisibleSelected,
 } from "../../app/transactions/filter";
 import { fingerprintTransaction } from "./transactionsSlice";
+import { calendarDate } from "../../app/summary";
 import type { Rule } from "../../app/types";
 
 function deriveKeywordRuleCategories(rules: Rule[]): string[] {
@@ -58,7 +59,8 @@ export const selectAvailableYears = createSelector(
   (transactions) => {
     const years = new Set<number>();
     for (const t of transactions) {
-      years.add(new Date(t.date).getFullYear());
+      const year = calendarDate(t.date)?.year;
+      if (year !== undefined) years.add(year);
     }
     return Array.from(years).sort((a, b) => b - a);
   },

@@ -10,6 +10,9 @@ import {
   Legend,
 } from "recharts";
 import { Transaction } from "../types";
+import { formatMoney } from "../format";
+import { spendByCategory, summarize } from "../summary";
+import SavingsRateStat from "./SavingsRateStat";
 
 interface CategoryPieChartProps {
   transactions: Transaction[];
@@ -42,29 +45,14 @@ export default function CategoryPieChart({
   transactions,
   filters,
 }: CategoryPieChartProps) {
-  // Filter out Income and any positive credits (e.g. Venmo/Zelle received)
-  const expensesOnly = transactions.filter(
-    (t) => t.category !== "Income" && t.amount < 0
-  );
+  const { income: totalIncome, expenses: totalSpent } =
+    summarize(transactions);
 
-  // Filter Income separately
-  const incomeOnly = transactions.filter((t) => t.category === "Income");
-
-  // Total spent / income
-  const totalSpent = expensesOnly.reduce((sum, t) => sum + Math.abs(t.amount), 0);
-  const totalIncome = incomeOnly.reduce((sum, t) => sum + Math.abs(t.amount), 0);
-
-  // Group expenses by category for pie chart
-  const data = Object.values(
-    expensesOnly.reduce(
-      (acc, t) => {
-        if (!acc[t.category]) acc[t.category] = { name: t.category, value: 0 };
-        acc[t.category].value += Math.abs(t.amount);
-        return acc;
-      },
-      {} as Record<string, ChartDataItem>,
-    ),
-  ) as ChartDataItem[];
+  // A category whose credits outweigh its charges has no slice to draw, so it
+  // is left out of the pie even though it still counts toward the total.
+  const data: ChartDataItem[] = spendByCategory(transactions)
+    .filter((entry) => entry.amount > 0)
+    .map((entry) => ({ name: entry.category, value: entry.amount }));
 
   return (
     <div className="w-full bg-black rounded-xl p-4">
@@ -74,24 +62,13 @@ export default function CategoryPieChart({
           <h2 className="text-lg font-semibold">Expenses by Category</h2>
           <p className="text-white/70 mt-1">
             Total Income:{" "}
-            <span className="font-bold">
-              $
-              {totalIncome.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </span>
+            <span className="font-bold">{formatMoney(totalIncome)}</span>
           </p>
           <p className="text-white/70 mt-1">
             Total spent:{" "}
-            <span className="font-bold">
-              $
-              {totalSpent.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </span>
+            <span className="font-bold">{formatMoney(totalSpent)}</span>
           </p>
+          <SavingsRateStat transactions={transactions} />
         </div>
         {filters ? <div className="flex gap-3 flex-wrap">{filters}</div> : null}
       </div>
@@ -117,12 +94,7 @@ export default function CategoryPieChart({
 
             <Tooltip
               formatter={(value) =>
-                typeof value === "number"
-                  ? `$${value.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}`
-                  : ""
+                typeof value === "number" ? formatMoney(value) : ""
               }
             />
             <Legend />

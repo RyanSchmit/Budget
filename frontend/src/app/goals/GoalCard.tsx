@@ -131,7 +131,7 @@ export default function GoalCard({
   const option = GOAL_TYPE_OPTIONS.find((o) => o.value === goal.type);
   const progress = goal.targetAmount > 0 ? Math.min(1, goal.currentSavings / goal.targetAmount) : 0;
   const progressPct = progress * 100;
-  const progressLabel = progressPct.toFixed(1);
+  const progressLabel = progressPct.toFixed(2);
   const bandColor =
     progressPct >= 100 ? "#4ade80" : progressPct >= 75 ? "#facc15" : "#22c55e";
 

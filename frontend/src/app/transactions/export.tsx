@@ -3,6 +3,7 @@
 import Papa from "papaparse";
 import { useEffect, useRef, useState } from "react";
 import { Transaction } from "../types";
+import { localIsoDate, monthKey } from "../summary";
 
 type ExportRow = {
   Date: string;
@@ -31,8 +32,7 @@ function toCsv(transactions: Transaction[]): string {
 function groupByMonth(transactions: Transaction[]): Map<string, Transaction[]> {
   const map = new Map<string, Transaction[]>();
   for (const t of transactions) {
-    // YYYY-MM-DD strings sort and slice cleanly.
-    const key = (t.date ?? "").slice(0, 7) || "unknown";
+    const key = monthKey(t.date ?? "");
     const list = map.get(key);
     if (list) list.push(t);
     else map.set(key, [t]);
@@ -53,7 +53,7 @@ function downloadBlob(blob: Blob, filename: string): void {
 }
 
 function todayStamp(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localIsoDate(new Date());
 }
 
 export default function ExportButton({

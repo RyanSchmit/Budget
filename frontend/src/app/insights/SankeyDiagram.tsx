@@ -6,6 +6,8 @@ import * as d3 from "d3";
 import { sankey } from "d3-sankey";
 import { Transaction } from "../types";
 import { formatMoney } from "../format";
+import { isIncome, spendByCategory, summarize } from "../summary";
+import SavingsRateStat from "./SavingsRateStat";
 
 interface CategoryPieChartProps {
   transactions: Transaction[];
@@ -144,51 +146,44 @@ export default function SankeyDiagram({
 }: CategoryPieChartProps) {
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const filteredExpenses = useMemo(
-    () => transactions.filter((t) => t.category !== "Income" && t.amount < 0),
+  const { income: totalIncome, expenses: totalSpent } = useMemo(
+    () => summarize(transactions),
     [transactions],
   );
-  const filteredIncome = useMemo(
-    () => transactions.filter((t) => t.category === "Income"),
+
+  // A category whose credits outweigh its charges has no ribbon to draw, so it
+  // is left out of the diagram even though it still counts toward the total.
+  const spend = useMemo(
+    () => spendByCategory(transactions).filter((entry) => entry.amount > 0),
     [transactions],
   );
 
   // Process income by source
   const incomeBySource = useMemo(() => {
-    return filteredIncome.reduce((acc, t) => {
+    return transactions.reduce((acc, t) => {
+      if (!isIncome(t)) return acc;
       const source = getIncomeSource(t.description);
-      const amount = Math.abs(t.amount);
-      acc[source] = (acc[source] || 0) + amount;
+      acc[source] = (acc[source] || 0) + t.amount;
       return acc;
     }, {} as Record<string, number>);
-  }, [filteredIncome]);
-
-  const totalIncome = useMemo(() => {
-    return Object.values(incomeBySource).reduce((sum, val) => sum + val, 0);
-  }, [incomeBySource]);
-
-  const totalSpent = useMemo(() => {
-    return filteredExpenses.reduce((sum, t) => sum + Math.abs(t.amount), 0);
-  }, [filteredExpenses]);
+  }, [transactions]);
 
   // Process expenses by major category
   const expensesByMajorCategory = useMemo(() => {
-    return filteredExpenses.reduce((acc, t) => {
-      const majorCategory = majorCategoryMap[t.category] || "Other";
-      const amount = Math.abs(t.amount);
+    return spend.reduce((acc, { category, amount }) => {
+      const majorCategory = majorCategoryMap[category] || "Other";
       acc[majorCategory] = (acc[majorCategory] || 0) + amount;
       return acc;
     }, {} as Record<string, number>);
-  }, [filteredExpenses]);
+  }, [spend]);
 
   // Process expenses by subcategory
   const expensesBySubcategory = useMemo(() => {
-    return filteredExpenses.reduce((acc, t) => {
-      const amount = Math.abs(t.amount);
-      acc[t.category] = (acc[t.category] || 0) + amount;
+    return spend.reduce((acc, { category, amount }) => {
+      acc[category] = amount;
       return acc;
     }, {} as Record<string, number>);
-  }, [filteredExpenses]);
+  }, [spend]);
 
   // Build Sankey data
   const data = useMemo((): SankeyData => {
@@ -418,24 +413,13 @@ export default function SankeyDiagram({
           <h2 className="text-lg font-semibold">Income & Expense Flow</h2>
           <p className="text-white/70 mt-1">
             Total Income:{" "}
-            <span className="font-bold">
-              $
-              {totalIncome.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </span>
+            <span className="font-bold">{formatMoney(totalIncome)}</span>
           </p>
           <p className="text-white/70 mt-1">
             Total spent:{" "}
-            <span className="font-bold">
-              $
-              {totalSpent.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </span>
+            <span className="font-bold">{formatMoney(totalSpent)}</span>
           </p>
+          <SavingsRateStat transactions={transactions} />
         </div>
         {filters ? <div className="flex gap-3 flex-wrap">{filters}</div> : null}
       </div>

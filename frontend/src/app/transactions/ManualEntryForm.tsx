@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Transaction } from "../types";
 import MoneyInput from "../MoneyInput";
+import { localIsoDate } from "../summary";
 import { normalizeDate } from "./csv";
 import { useAppDispatch, useAppSelector } from "../../lib/store/hooks";
 import {
@@ -17,7 +18,7 @@ import {
 const NEW_CATEGORY = "__NEW__";
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localIsoDate(new Date());
 }
 
 export default function ManualEntryForm() {

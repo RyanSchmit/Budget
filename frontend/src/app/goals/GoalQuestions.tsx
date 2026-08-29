@@ -148,8 +148,10 @@ function GoalsContent() {
     setEditingGoal(null);
   }
 
-  // Summary stats
-  const totalWeekly = goals.reduce((sum, g) => sum + g.weeklyContribution, 0);
+  // Summary stats — commitment only counts goals still in progress
+  const totalWeekly = goals
+    .filter((g) => g.currentSavings < g.targetAmount)
+    .reduce((sum, g) => sum + g.weeklyContribution, 0);
 
   const nearestEta = goals.reduce<{ label: string; weeks: number } | null>((best, g) => {
     if (g.weeklyContribution <= 0 || g.currentSavings >= g.targetAmount) return best;

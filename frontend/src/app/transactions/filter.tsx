@@ -1,6 +1,7 @@
 "use client";
 
 import { Transaction } from "../types";
+import { calendarDate, isIncome } from "../summary";
 
 /** -----------------------
  *  Types
@@ -13,6 +14,7 @@ export type TransactionFilters = {
 
   month: number | "ALL";
   year: number | "ALL";
+  // Both split on the "Income" category, the same way the insights charts do.
   expensesOnly: boolean;
   incomeOnly: boolean;
 };
@@ -64,19 +66,20 @@ export function filterTransactions(
     const matchesCategory =
       categoryFilter === "ALL" || t.category === categoryFilter;
 
-    const txDate = new Date(t.date);
+    // Read the calendar fields off the stored string rather than through Date,
+    // which would parse "YYYY-MM-DD" as UTC midnight and push the 1st of a
+    // month into the previous month for anyone west of UTC.
+    const date = calendarDate(t.date);
 
-    const afterStart = startDate ? txDate >= new Date(startDate) : true;
-    const beforeEnd = endDate ? txDate <= new Date(endDate) : true;
+    const afterStart = !startDate || (date !== null && date.iso >= startDate);
+    const beforeEnd = !endDate || (date !== null && date.iso <= endDate);
 
-    const matchesMonth =
-      month === "ALL" || txDate.getMonth() + 1 === month;
+    const matchesMonth = month === "ALL" || date?.month === month;
 
-    const matchesYear =
-      year === "ALL" || txDate.getFullYear() === year;
+    const matchesYear = year === "ALL" || date?.year === year;
 
-    const matchesExpensesOnly = !expensesOnly || t.amount < 0;
-    const matchesIncomeOnly = !incomeOnly || t.amount > 0;
+    const matchesExpensesOnly = !expensesOnly || !isIncome(t);
+    const matchesIncomeOnly = !incomeOnly || isIncome(t);
 
     return (
       matchesSearch &&
