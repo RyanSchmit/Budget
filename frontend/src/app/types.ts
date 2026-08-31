@@ -25,6 +25,8 @@ export interface AccountItem {
 export interface ChartDataPoint {
   week: number;
   balance: number;
+  /** Cumulative amount put in: starting principal plus contributions so far. */
+  principal: number;
 }
 
 export interface TimeToGoalResult {

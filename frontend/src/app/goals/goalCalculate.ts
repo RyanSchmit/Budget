@@ -1,4 +1,5 @@
 import {
+  ChartDataPoint,
   TimeToGoalResult,
   ContributionResult,
   FinalBalanceResult,
@@ -35,12 +36,14 @@ export function calculateTimeToGoal({
 
   const weeklyRate = annualRate / 100 / 52;
   let balance = principal;
+  let contributed = principal;
   let weeks = 0;
-  const chartData: Array<{ week: number; balance: number }> = [];
+  const chartData: ChartDataPoint[] = [];
 
   while (balance < target) {
-    chartData.push({ week: weeks, balance });
+    chartData.push({ week: weeks, balance, principal: contributed });
     balance += weeklyContribution;
+    contributed += weeklyContribution;
     balance *= 1 + weeklyRate;
     weeks++;
 
@@ -48,7 +51,7 @@ export function calculateTimeToGoal({
     if (weeks > 52 * 200) return null;
   }
 
-  chartData.push({ week: weeks, balance });
+  chartData.push({ week: weeks, balance, principal: contributed });
 
   const years = Math.floor(weeks / 52);
   const months = Math.round(((weeks % 52) / 52) * 12);
@@ -91,12 +94,14 @@ export function calculateRequiredWeeklyContribution({
     }
   }
 
-  const chartData: Array<{ week: number; balance: number }> = [];
+  const chartData: ChartDataPoint[] = [];
   let balance = principal;
+  let contributed = principal;
 
   for (let w = 0; w <= weeks; w++) {
-    chartData.push({ week: w, balance });
+    chartData.push({ week: w, balance, principal: contributed });
     balance += contribution;
+    contributed += contribution;
     balance *= 1 + weeklyRate;
   }
 
@@ -120,11 +125,13 @@ export function calculateFinalBalance({
   const weeks = Math.round(years * 52);
   const weeklyRate = annualRate / 100 / 52;
   let balance = principal;
-  const chartData: Array<{ week: number; balance: number }> = [];
+  let contributed = principal;
+  const chartData: ChartDataPoint[] = [];
 
   for (let w = 0; w <= weeks; w++) {
-    chartData.push({ week: w, balance });
+    chartData.push({ week: w, balance, principal: contributed });
     balance += weeklyContribution;
+    contributed += weeklyContribution;
     balance *= 1 + weeklyRate;
   }
 

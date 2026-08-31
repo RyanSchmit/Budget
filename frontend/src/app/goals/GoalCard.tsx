@@ -11,7 +11,6 @@ import {
   ResponsiveContainer,
   ReferenceArea,
   ReferenceLine,
-  Legend,
 } from "recharts";
 import { formatMoney } from "@/app/format";
 import {
@@ -23,7 +22,6 @@ import {
   useContributionFrequency,
   fromWeekly,
   frequencyLabel,
-  frequencySuffix,
 } from "./goalFrequency";
 import { ChartDataPoint } from "@/app/types";
 
@@ -41,60 +39,34 @@ function downsample(data: ChartDataPoint[], step = 4): ChartDataPoint[] {
   return data.filter((_, i) => i % step === 0);
 }
 
-/** Build chart data for three contribution scenarios. */
-function buildScenarios(goal: Goal) {
-  const base = goal.weeklyContribution;
-  const multipliers = [1, 1.5, 2];
-  const labels = ["Current", "+50%", "×2"];
+/** Project the goal's growth from zero at the current contribution level. */
+function buildProjection(goal: Goal) {
+  const result =
+    goal.timeline === "flexible"
+      ? calculateTimeToGoal({
+          principal: 0,
+          weeklyContribution: goal.weeklyContribution,
+          annualRate: goal.annualRate,
+          target: goal.targetAmount,
+        })
+      : calculateRequiredWeeklyContribution({
+          principal: 0,
+          annualRate: goal.annualRate,
+          target: goal.targetAmount,
+          years: goal.durationYears ?? 5,
+        });
 
-  const results = multipliers.map((m) => {
-    const contribution = base * m;
-    if (goal.timeline === "flexible") {
-      return calculateTimeToGoal({
-        principal: 0,
-        weeklyContribution: contribution,
-        annualRate: goal.annualRate,
-        target: goal.targetAmount,
-      });
-    } else {
-      return calculateRequiredWeeklyContribution({
-        principal: 0,
-        annualRate: goal.annualRate,
-        target: goal.targetAmount,
-        years: goal.durationYears ?? 5,
-      });
-    }
-  });
+  const chartData = result?.chartData ?? [];
+  const final = chartData[chartData.length - 1];
+  const sampled = downsample(chartData);
 
-  // Find the max number of weeks across all scenarios
-  const maxWeeks = Math.max(
-    ...results.map((r) => (r ? r.chartData[r.chartData.length - 1]?.week ?? 0 : 0))
-  );
+  // Downsampling can drop the final point; keep it so the line reaches the goal.
+  if (final && sampled[sampled.length - 1] !== final) sampled.push(final);
 
-  // Build a unified week array with all scenario balances
-  interface MergedPoint {
-    week: number;
-    [key: string]: number;
-  }
-
-  const weekMap = new Map<number, MergedPoint>();
-
-  results.forEach((r, idx) => {
-    if (!r) return;
-    const sampled = downsample(r.chartData, 4);
-    sampled.forEach((pt) => {
-      if (!weekMap.has(pt.week)) {
-        weekMap.set(pt.week, { week: pt.week });
-      }
-      weekMap.get(pt.week)![labels[idx]] = pt.balance;
-    });
-  });
-
-  const merged = Array.from(weekMap.values()).sort((a, b) => a.week - b.week);
-  return { merged, labels, results, maxWeeks };
+  return { chartData, sampled, final, maxWeeks: final?.week ?? 0 };
 }
 
-const COLORS = ["#4ade80", "#facc15", "#60a5fa"];
+const LINE_COLOR = "#4ade80";
 
 function GripIcon() {
   return (
@@ -126,12 +98,11 @@ export default function GoalCard({
   const [showChart, setShowChart] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { frequency } = useContributionFrequency();
-  const freqSuffix = frequencySuffix(frequency);
 
   const option = GOAL_TYPE_OPTIONS.find((o) => o.value === goal.type);
   const progress = goal.targetAmount > 0 ? Math.min(1, goal.currentSavings / goal.targetAmount) : 0;
   const progressPct = progress * 100;
-  const progressLabel = progressPct.toFixed(1);
+  const progressLabel = progressPct.toFixed(2);
   const bandColor =
     progressPct >= 100 ? "#4ade80" : progressPct >= 75 ? "#facc15" : "#22c55e";
 
@@ -167,7 +138,12 @@ export default function GoalCard({
       `What advice do you have to help me reach this goal faster?`
   );
 
-  const { merged, labels, results, maxWeeks } = buildScenarios(goal);
+  const {
+    chartData: currentChart,
+    sampled,
+    final: finalPoint,
+    maxWeeks,
+  } = buildProjection(goal);
 
   // Milestone reference values for the chart (25%, 50%, 75%, 100%)
   const milestones = [0.25, 0.5, 0.75, 1].map((pct) => ({
@@ -175,9 +151,8 @@ export default function GoalCard({
     label: `${pct * 100}%`,
   }));
 
-  // Vertical "how far along" shading: the week on the Current (from-zero) path
+  // Vertical "how far along" shading: the week on the from-zero path
   // where the balance reaches the user's actual current savings.
-  const currentChart = results[0]?.chartData ?? [];
   const progressWeek =
     goal.currentSavings > 0 && currentChart.length > 0
       ? currentChart.find((p) => p.balance >= goal.currentSavings)?.week ??
@@ -320,43 +295,33 @@ export default function GoalCard({
         onClick={() => setShowChart((v) => !v)}
         className="w-full rounded-md border border-gray-700 py-1.5 text-sm text-gray-400 hover:bg-gray-800 hover:text-white transition"
       >
-        {showChart ? "Hide chart" : "Show growth chart & scenarios"}
+        {showChart ? "Hide chart" : "Show growth chart"}
       </button>
 
       {showChart && (
         <div className="space-y-3">
-          {/* What-if scenario summary */}
-          <div className="grid grid-cols-3 gap-2">
-            {labels.map((label, i) => {
-              const res = results[i];
-              const contribution = goal.weeklyContribution * [1, 1.5, 2][i];
-              let etaSummary = "—";
-              if (res && "weeks" in res) {
-                const { years, months } = res as { years: number; months: number };
-                etaSummary = years === 0 ? `${months}mo` : months === 0 ? `${years}y` : `${years}y ${months}mo`;
-              }
-              return (
-                <div
-                  key={label}
-                  className="rounded-lg bg-gray-800/60 px-2 py-2.5 text-center border border-gray-700/50"
-                >
-                  <div className="text-xs font-medium" style={{ color: COLORS[i] }}>
-                    {label}
-                  </div>
-                  <div className="mt-0.5 text-xs text-white font-medium">
-                    {formatMoney(fromWeekly(contribution, frequency))}
-                    {freqSuffix}
-                  </div>
-                  <div className="mt-0.5 text-xs text-gray-400">{etaSummary}</div>
-                </div>
-              );
-            })}
+          {/* Principal vs. interest at goal completion */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-lg bg-gray-800/60 px-2 py-2.5 text-center border border-gray-700/50">
+              <div className="text-xs text-gray-500">Principal</div>
+              <div className="mt-0.5 text-sm font-medium text-white">
+                {finalPoint ? formatMoney(finalPoint.principal) : "—"}
+              </div>
+            </div>
+            <div className="rounded-lg bg-gray-800/60 px-2 py-2.5 text-center border border-gray-700/50">
+              <div className="text-xs text-gray-500">Interest gained</div>
+              <div className="mt-0.5 text-sm font-medium text-white">
+                {finalPoint
+                  ? formatMoney(finalPoint.balance - finalPoint.principal)
+                  : "—"}
+              </div>
+            </div>
           </div>
 
           {/* Chart */}
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={merged} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+              <LineChart data={sampled} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                 <XAxis
                   dataKey="week"
                   type="number"
@@ -382,14 +347,11 @@ export default function GoalCard({
                 <Tooltip
                   contentStyle={{ background: "#111827", border: "1px solid #374151", borderRadius: 8 }}
                   labelStyle={{ color: "#9ca3af", fontSize: 11 }}
-                  formatter={(value, name) => [
+                  formatter={(value) => [
                     typeof value === "number" ? formatMoney(value) : "",
-                    name,
+                    "Balance",
                   ]}
                   labelFormatter={(w: number) => `Week ${w} (${(w / 52).toFixed(1)} yrs)`}
-                />
-                <Legend
-                  wrapperStyle={{ fontSize: 11, paddingTop: 4 }}
                 />
 
                 {/* Vertical "how far along" shading (week 0 → current savings) */}
@@ -427,24 +389,16 @@ export default function GoalCard({
                   />
                 ))}
 
-                {labels.map((label, i) => (
-                  <Line
-                    key={label}
-                    type="monotone"
-                    dataKey={label}
-                    stroke={COLORS[i]}
-                    strokeWidth={i === 0 ? 2 : 1.5}
-                    dot={false}
-                    strokeDasharray={i === 0 ? undefined : i === 1 ? "4 2" : "2 2"}
-                    connectNulls
-                  />
-                ))}
+                <Line
+                  type="monotone"
+                  dataKey="balance"
+                  stroke={LINE_COLOR}
+                  strokeWidth={2}
+                  dot={false}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
-          <p className="text-xs text-gray-600 text-center">
-            Dashed lines show +50% and ×2 contribution scenarios
-          </p>
         </div>
       )}
 
