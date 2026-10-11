@@ -1,4 +1,4 @@
-const supabase = require("../config/supabase");
+const db = require("../config/db");
 const {
   requireString,
   requireNumber,
@@ -38,27 +38,43 @@ function validateGoalBody(res, body) {
   ]);
 }
 
-function toRow(goal) {
-  return {
-    type: goal.type,
-    name: goal.name.trim(),
-    target_amount: goal.targetAmount,
-    current_savings: goal.currentSavings,
-    weekly_contribution: goal.weeklyContribution,
-    annual_rate: goal.annualRate,
-    timeline: goal.timeline,
-    duration_years: goal.durationYears ?? null,
-    emergency_months: goal.emergencyMonths ?? null,
-    current_age: goal.currentAge ?? null,
-    retirement_age: goal.retirementAge ?? null,
-    desired_annual_income: goal.desiredAnnualIncome ?? null,
-    home_price: goal.homePrice ?? null,
-    debt_interest_rate: goal.debtInterestRate ?? null,
-    ...(goal.position != null ? { position: goal.position } : {}),
-    ...(goal.autoTransferEnabled != null
-      ? { auto_transfer_enabled: !!goal.autoTransferEnabled }
-      : {}),
-  };
+// Columns written by create/update, in the order their values are bound.
+const WRITABLE = [
+  "type",
+  "name",
+  "target_amount",
+  "current_savings",
+  "weekly_contribution",
+  "annual_rate",
+  "timeline",
+  "duration_years",
+  "emergency_months",
+  "current_age",
+  "retirement_age",
+  "desired_annual_income",
+  "home_price",
+  "debt_interest_rate",
+  "auto_transfer_enabled",
+];
+
+function toValues(goal) {
+  return [
+    goal.type,
+    goal.name.trim(),
+    goal.targetAmount,
+    goal.currentSavings,
+    goal.weeklyContribution,
+    goal.annualRate,
+    goal.timeline,
+    goal.durationYears ?? null,
+    goal.emergencyMonths ?? null,
+    goal.currentAge ?? null,
+    goal.retirementAge ?? null,
+    goal.desiredAnnualIncome ?? null,
+    goal.homePrice ?? null,
+    goal.debtInterestRate ?? null,
+    goal.autoTransferEnabled ?? false,
+  ];
 }
 
 function toGoal(row) {
@@ -84,39 +100,15 @@ function toGoal(row) {
   };
 }
 
-// Strip optional columns from a row when the DB schema may be missing them
-// (i.e. a migration hasn't been run yet). Used by fallback paths.
-function stripFallbackColumns(row) {
-  // eslint-disable-next-line no-unused-vars
-  const { position, auto_transfer_enabled, ...rest } = row;
-  return rest;
-}
-
-function isMissingColumnError(error) {
-  return error?.code === "42703" || error?.code === "PGRST204";
-}
-
 exports.list = async (req, res, next) => {
   try {
-    // Try ordering by position first; fall back to created_at if column doesn't exist yet
-    let result = await supabase
-      .from("goals")
-      .select("*")
-      .eq("user_id", req.user.id)
-      .order("position", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: true });
-
-    if (result.error?.code === "42703" || result.error?.code === "PGRST204") {
-      // Column doesn't exist yet — fall back until migration is run
-      result = await supabase
-        .from("goals")
-        .select("*")
-        .eq("user_id", req.user.id)
-        .order("created_at", { ascending: true });
-    }
-
-    if (result.error) throw result.error;
-    res.json(result.data.map(toGoal));
+    const rows = await db.rows(
+      `SELECT * FROM goals
+        WHERE user_id = $1
+        ORDER BY position ASC NULLS LAST, created_at ASC`,
+      [req.user.id],
+    );
+    res.json(rows.map(toGoal));
   } catch (err) {
     next(err);
   }
@@ -126,30 +118,20 @@ exports.create = async (req, res, next) => {
   try {
     if (validateGoalBody(res, req.body)) return;
 
-    // Assign position = current count so new goals appear at the end
-    const { count } = await supabase
-      .from("goals")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", req.user.id);
+    const values = toValues(req.body);
+    const placeholders = values.map((_, i) => `$${i + 2}`).join(", ");
 
-    const row = toRow(req.body);
-    let result = await supabase
-      .from("goals")
-      .insert({ user_id: req.user.id, position: count ?? 0, ...row })
-      .select()
-      .single();
+    // position = current goal count, so new goals land at the end. Derived
+    // in the same statement to avoid a separate count round trip.
+    const row = await db.one(
+      `INSERT INTO goals (user_id, ${WRITABLE.join(", ")}, position)
+            VALUES ($1, ${placeholders},
+                    (SELECT count(*) FROM goals WHERE user_id = $1))
+         RETURNING *`,
+      [req.user.id, ...values],
+    );
 
-    // If a column doesn't exist yet (pre-migration), retry without optional cols
-    if (isMissingColumnError(result.error)) {
-      result = await supabase
-        .from("goals")
-        .insert({ user_id: req.user.id, ...stripFallbackColumns(row) })
-        .select()
-        .single();
-    }
-
-    if (result.error) throw result.error;
-    res.status(201).json(toGoal(result.data));
+    res.status(201).json(toGoal(row));
   } catch (err) {
     next(err);
   }
@@ -159,31 +141,21 @@ exports.update = async (req, res, next) => {
   try {
     if (validateGoalBody(res, req.body)) return;
 
-    const row = toRow(req.body);
-    let result = await supabase
-      .from("goals")
-      .update({ ...row, updated_at: new Date().toISOString() })
-      .eq("id", req.params.id)
-      .eq("user_id", req.user.id)
-      .select()
-      .single();
+    const values = toValues(req.body);
+    const assignments = WRITABLE.map((col, i) => `${col} = $${i + 1}`).join(", ");
 
-    // If a column doesn't exist yet (pre-migration), retry without optional cols
-    if (isMissingColumnError(result.error)) {
-      result = await supabase
-        .from("goals")
-        .update({ ...stripFallbackColumns(row), updated_at: new Date().toISOString() })
-        .eq("id", req.params.id)
-        .eq("user_id", req.user.id)
-        .select()
-        .single();
-    }
+    const row = await db.one(
+      `UPDATE goals
+          SET ${assignments}
+        WHERE id = $${values.length + 1} AND user_id = $${values.length + 2}
+      RETURNING *`,
+      [...values, req.params.id, req.user.id],
+    );
 
-    if (result.error && result.error.code === "PGRST116") {
+    if (!row) {
       return res.status(404).json({ error: "Goal not found" });
     }
-    if (result.error) throw result.error;
-    res.json(toGoal(result.data));
+    res.json(toGoal(row));
   } catch (err) {
     next(err);
   }
@@ -191,16 +163,14 @@ exports.update = async (req, res, next) => {
 
 exports.remove = async (req, res, next) => {
   try {
-    const { error } = await supabase
-      .from("goals")
-      .delete()
-      .eq("id", req.params.id)
-      .eq("user_id", req.user.id);
+    const row = await db.one(
+      `DELETE FROM goals WHERE id = $1 AND user_id = $2 RETURNING id`,
+      [req.params.id, req.user.id],
+    );
 
-    if (error && error.code === "PGRST116") {
+    if (!row) {
       return res.status(404).json({ error: "Goal not found" });
     }
-    if (error) throw error;
     res.status(204).end();
   } catch (err) {
     next(err);
@@ -214,21 +184,18 @@ exports.reorder = async (req, res, next) => {
       return res.status(400).json({ error: "Body must be an array of { id, position }" });
     }
 
-    const updates = await Promise.all(
-      items.map(({ id, position }) =>
-        supabase
-          .from("goals")
-          .update({ position, updated_at: new Date().toISOString() })
-          .eq("id", id)
-          .eq("user_id", req.user.id)
-      )
+    // All or nothing — a partial reorder leaves the list in a worse state
+    // than not reordering at all.
+    await db.transaction((client) =>
+      Promise.all(
+        items.map(({ id, position }) =>
+          client.query(
+            `UPDATE goals SET position = $1 WHERE id = $2 AND user_id = $3`,
+            [position, id, req.user.id],
+          ),
+        ),
+      ),
     );
-
-    const firstError = updates.find((r) => r.error)?.error;
-    if (firstError?.code === "42703" || firstError?.code === "PGRST204") {
-      return res.status(503).json({ error: "Database migration pending: run ALTER TABLE goals ADD COLUMN position integer;" });
-    }
-    if (firstError) throw firstError;
 
     res.status(204).end();
   } catch (err) {

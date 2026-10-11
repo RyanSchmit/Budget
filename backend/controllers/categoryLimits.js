@@ -1,12 +1,5 @@
-const supabase = require("../config/supabase");
+const db = require("../config/db");
 const { requireString, requireNumber, validate } = require("../utils/validation");
-
-function toRow(body) {
-  return {
-    category_name: body.categoryName.trim(),
-    monthly_limit: body.monthlyLimit,
-  };
-}
 
 function toLimit(row) {
   return {
@@ -20,14 +13,11 @@ function toLimit(row) {
 
 exports.list = async (req, res, next) => {
   try {
-    const { data, error } = await supabase
-      .from("category_limits")
-      .select("*")
-      .eq("user_id", req.user.id)
-      .order("category_name", { ascending: true });
-
-    if (error) throw error;
-    res.json(data.map(toLimit));
+    const rows = await db.rows(
+      `SELECT * FROM category_limits WHERE user_id = $1 ORDER BY category_name ASC`,
+      [req.user.id],
+    );
+    res.json(rows.map(toLimit));
   } catch (err) {
     next(err);
   }
@@ -41,15 +31,19 @@ exports.create = async (req, res, next) => {
       requireNumber(monthlyLimit, "monthlyLimit", { min: 0 }),
     ])) return;
 
-    const { data, error } = await supabase
-      .from("category_limits")
-      .insert({ user_id: req.user.id, ...toRow(req.body) })
-      .select()
-      .single();
+    const row = await db.one(
+      `INSERT INTO category_limits (user_id, category_name, monthly_limit)
+            VALUES ($1, $2, $3)
+         RETURNING *`,
+      [req.user.id, categoryName.trim(), monthlyLimit],
+    );
 
-    if (error) throw error;
-    res.status(201).json(toLimit(data));
+    res.status(201).json(toLimit(row));
   } catch (err) {
+    // UNIQUE (user_id, category_name)
+    if (err.code === "23505") {
+      return res.status(409).json({ error: "A limit for that category already exists" });
+    }
     next(err);
   }
 };
@@ -61,19 +55,18 @@ exports.update = async (req, res, next) => {
       requireNumber(monthlyLimit, "monthlyLimit", { min: 0 }),
     ])) return;
 
-    const { data, error } = await supabase
-      .from("category_limits")
-      .update({ monthly_limit: monthlyLimit, updated_at: new Date().toISOString() })
-      .eq("id", req.params.id)
-      .eq("user_id", req.user.id)
-      .select()
-      .single();
+    const row = await db.one(
+      `UPDATE category_limits
+          SET monthly_limit = $1
+        WHERE id = $2 AND user_id = $3
+      RETURNING *`,
+      [monthlyLimit, req.params.id, req.user.id],
+    );
 
-    if (error && error.code === "PGRST116") {
+    if (!row) {
       return res.status(404).json({ error: "Category limit not found" });
     }
-    if (error) throw error;
-    res.json(toLimit(data));
+    res.json(toLimit(row));
   } catch (err) {
     next(err);
   }
@@ -81,16 +74,14 @@ exports.update = async (req, res, next) => {
 
 exports.remove = async (req, res, next) => {
   try {
-    const { error } = await supabase
-      .from("category_limits")
-      .delete()
-      .eq("id", req.params.id)
-      .eq("user_id", req.user.id);
+    const row = await db.one(
+      `DELETE FROM category_limits WHERE id = $1 AND user_id = $2 RETURNING id`,
+      [req.params.id, req.user.id],
+    );
 
-    if (error && error.code === "PGRST116") {
+    if (!row) {
       return res.status(404).json({ error: "Category limit not found" });
     }
-    if (error) throw error;
     res.status(204).end();
   } catch (err) {
     next(err);

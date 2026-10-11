@@ -20,6 +20,65 @@ export const normalizeDate = (raw: string): string => {
   return raw;
 };
 
+// Header names vary between banks, so match on a loose key: lowercased with
+// all non-alphanumeric characters removed ("Transaction Date" -> "transactiondate").
+const looseKey = (header: string): string =>
+  header.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+const DATE_KEYS = ["transactiondate", "postingdate", "posteddate", "date"];
+const DESCRIPTION_KEYS = ["transactiondescription", "description", "memo", "payee"];
+const AMOUNT_KEYS = ["transactionamount", "amount"];
+const TYPE_KEYS = ["transactiontype", "type"];
+
+const pick = (row: Record<string, string>, keys: string[]): string => {
+  for (const key of keys) {
+    const value = row[key];
+    if (value != null && String(value).trim() !== "") return String(value).trim();
+  }
+  return "";
+};
+
+const parseAmount = (raw: string): { numeric: number; negative: boolean } => {
+  const cleaned = raw.replace(/[$,\s]/g, "");
+  const negative = cleaned.includes("-") || /^\(.*\)$/.test(cleaned);
+  const numeric = Math.abs(Number(cleaned.replace(/[()-]/g, "")) || 0);
+  return { numeric, negative };
+};
+
+const toTransaction = (row: Record<string, string>): Transaction => {
+  const debitRaw = pick(row, ["debit"]);
+  const creditRaw = pick(row, ["credit"]);
+  const amountRaw = pick(row, AMOUNT_KEYS);
+  const type = pick(row, TYPE_KEYS).toLowerCase();
+
+  let amount = 0;
+  if (debitRaw) {
+    amount = -parseAmount(debitRaw).numeric;
+  } else if (creditRaw) {
+    amount = parseAmount(creditRaw).numeric;
+  } else {
+    // Single amount column. A separate type column ("Debit"/"Credit",
+    // "Withdrawal"/"Deposit") wins over the sign, since such files list
+    // every amount as a positive magnitude.
+    const { numeric, negative } = parseAmount(amountRaw);
+    if (type.startsWith("debit") || type.startsWith("withdrawal")) {
+      amount = -numeric;
+    } else if (type.startsWith("credit") || type.startsWith("deposit")) {
+      amount = numeric;
+    } else {
+      amount = negative ? -numeric : numeric;
+    }
+  }
+
+  return {
+    id: crypto.randomUUID(),
+    date: normalizeDate(pick(row, DATE_KEYS)),
+    description: pick(row, DESCRIPTION_KEYS),
+    category: "N/A",
+    amount,
+  };
+};
+
 const handleCSVUpload = (
   file: File,
   onComplete: (transactions: Transaction[]) => void,
@@ -29,36 +88,11 @@ const handleCSVUpload = (
   Papa.parse(file, {
     header: true,
     skipEmptyLines: true,
+    transformHeader: looseKey,
     complete: ({ data }) => {
-      const parsed: Transaction[] = (data as any[]).map((row) => {
-        const debitRaw = row.Debit ?? row.debit ?? "";
-        const creditRaw = row.Credit ?? row.credit ?? "";
-        const fallbackRaw = row.Amount ?? row.amount ?? "";
-        const raw = debitRaw || creditRaw || fallbackRaw || "0";
-
-        const cleaned = String(raw).replace(/[$,]/g, "").trim();
-        const hasParens = cleaned.includes("(") && cleaned.includes(")");
-        const numeric = Number(cleaned.replace(/[()]/g, "") || 0);
-
-        let amount = numeric;
-        if (debitRaw) {
-          amount = -Math.abs(numeric);
-        } else if (creditRaw) {
-          amount = Math.abs(numeric);
-        } else if (hasParens || String(raw).includes("-")) {
-          amount = -Math.abs(numeric);
-        } else {
-          amount = Math.abs(numeric);
-        }
-
-        return {
-          id: crypto.randomUUID(),
-          date: normalizeDate(row.Date || row.date || ""),
-          description: row.Description || row.description || "",
-          category: "N/A",
-          amount,
-        };
-      });
+      const parsed = (data as Record<string, string>[])
+        .map(toTransaction)
+        .filter((t) => t.date || t.description || t.amount);
 
       onComplete(parsed);
     },

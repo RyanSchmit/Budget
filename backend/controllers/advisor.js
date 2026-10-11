@@ -1,5 +1,5 @@
 const OpenAI = require("openai");
-const supabase = require("../config/supabase");
+const db = require("../config/db");
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -40,34 +40,37 @@ cost more than a lifetime of suboptimal investing.
 
 const MODEL = process.env.ADVISOR_MODEL || "gpt-4o-mini";
 
+// Snapshot with its accounts embedded, matching the old nested-select shape.
+const SNAPSHOT_WITH_ACCOUNTS = `
+  SELECT s.*,
+         COALESCE((
+           SELECT json_agg(a ORDER BY a.sort_order, a.created_at)
+             FROM net_worth_snapshot_accounts a
+            WHERE a.snapshot_id = s.id
+         ), '[]'::json) AS net_worth_snapshot_accounts
+    FROM net_worth_snapshots s
+`;
+
 // ------------------------------------------------------------------
 // Helper: verify the conversation belongs to the requesting user
 // ------------------------------------------------------------------
 async function ownConversation(conversationId, userId) {
-  const { data, error } = await supabase
-    .from("advisor_conversations")
-    .select("id")
-    .eq("id", conversationId)
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data !== null;
+  const row = await db.one(
+    `SELECT id FROM advisor_conversations WHERE id = $1 AND user_id = $2`,
+    [conversationId, userId],
+  );
+  return row !== null;
 }
 
 // ------------------------------------------------------------------
 // Helper: verify the snapshot belongs to the requesting user
 // ------------------------------------------------------------------
 async function ownSnapshot(snapshotId, userId) {
-  const { data, error } = await supabase
-    .from("net_worth_snapshots")
-    .select("id")
-    .eq("id", snapshotId)
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data !== null;
+  const row = await db.one(
+    `SELECT id FROM net_worth_snapshots WHERE id = $1 AND user_id = $2`,
+    [snapshotId, userId],
+  );
+  return row !== null;
 }
 
 // ------------------------------------------------------------------
@@ -79,35 +82,29 @@ async function buildChatMessages(conversationId, allowDataAccess = true) {
   let snapshotContext = "";
 
   if (allowDataAccess) {
-    const { data: contextRows } = await supabase
-      .from("advisor_conversation_context")
-      .select("snapshot_id")
-      .eq("conversation_id", conversationId);
+    const snapshots = await db.rows(
+      `${SNAPSHOT_WITH_ACCOUNTS}
+        WHERE s.id IN (
+          SELECT snapshot_id
+            FROM advisor_conversation_context
+           WHERE conversation_id = $1 AND snapshot_id IS NOT NULL
+        )`,
+      [conversationId],
+    );
 
-    if (contextRows?.length) {
-      const snapshotIds = contextRows.map((r) => r.snapshot_id).filter(Boolean);
-      if (snapshotIds.length) {
-        const { data: snapshots } = await supabase
-          .from("net_worth_snapshots")
-          .select("*, net_worth_snapshot_accounts(*)")
-          .in("id", snapshotIds);
-
-        if (snapshots?.length) {
-          snapshotContext =
-            "\n\nThe user has linked the following net-worth snapshot(s) to this conversation:\n" +
-            JSON.stringify(snapshots, null, 2);
-        }
-      }
+    if (snapshots.length) {
+      snapshotContext =
+        "\n\nThe user has linked the following net-worth snapshot(s) to this conversation:\n" +
+        JSON.stringify(snapshots, null, 2);
     }
   }
 
-  const { data: messages, error } = await supabase
-    .from("advisor_messages")
-    .select("role, content")
-    .eq("conversation_id", conversationId)
-    .order("created_at", { ascending: true });
-
-  if (error) throw error;
+  const messages = await db.rows(
+    `SELECT role, content FROM advisor_messages
+      WHERE conversation_id = $1
+      ORDER BY created_at ASC`,
+    [conversationId],
+  );
 
   return [
     { role: "system", content: SYSTEM_PROMPT + snapshotContext },
@@ -120,14 +117,11 @@ async function buildChatMessages(conversationId, allowDataAccess = true) {
 // ------------------------------------------------------------------
 async function listConversations(req, res, next) {
   try {
-    const { data, error } = await supabase
-      .from("advisor_conversations")
-      .select("*")
-      .eq("user_id", req.user.id)
-      .order("updated_at", { ascending: false });
-
-    if (error) throw error;
-    res.json({ conversations: data });
+    const conversations = await db.rows(
+      `SELECT * FROM advisor_conversations WHERE user_id = $1 ORDER BY updated_at DESC`,
+      [req.user.id],
+    );
+    res.json({ conversations });
   } catch (err) {
     next(err);
   }
@@ -141,25 +135,29 @@ async function createConversation(req, res, next) {
   try {
     const { title = null, snapshot_id = null } = req.body;
 
-    const { data: conversation, error: convErr } = await supabase
-      .from("advisor_conversations")
-      .insert({ user_id: req.user.id, title })
-      .select()
-      .single();
+    if (snapshot_id && !(await ownSnapshot(snapshot_id, req.user.id))) {
+      return res.status(404).json({ error: "Snapshot not found" });
+    }
 
-    if (convErr) throw convErr;
+    // Creating the conversation and linking its context is one unit, so a
+    // failed link cannot leave an orphaned conversation behind.
+    const conversation = await db.transaction(async (client) => {
+      const { rows } = await client.query(
+        `INSERT INTO advisor_conversations (user_id, title) VALUES ($1, $2) RETURNING *`,
+        [req.user.id, title],
+      );
+      const created = rows[0];
 
-    if (snapshot_id) {
-      if (!(await ownSnapshot(snapshot_id, req.user.id))) {
-        return res.status(404).json({ error: "Snapshot not found" });
+      if (snapshot_id) {
+        await client.query(
+          `INSERT INTO advisor_conversation_context (conversation_id, snapshot_id)
+                VALUES ($1, $2)`,
+          [created.id, snapshot_id],
+        );
       }
 
-      const { error: ctxErr } = await supabase
-        .from("advisor_conversation_context")
-        .insert({ conversation_id: conversation.id, snapshot_id });
-
-      if (ctxErr) throw ctxErr;
-    }
+      return created;
+    });
 
     res.status(201).json({ conversation });
   } catch (err) {
@@ -172,18 +170,22 @@ async function createConversation(req, res, next) {
 // ------------------------------------------------------------------
 async function getConversation(req, res, next) {
   try {
-    const { data, error } = await supabase
-      .from("advisor_conversations")
-      .select("*, advisor_conversation_context(snapshot_id)")
-      .eq("id", req.params.id)
-      .eq("user_id", req.user.id)
-      .single();
+    const conversation = await db.one(
+      `SELECT c.*,
+              COALESCE((
+                SELECT json_agg(json_build_object('snapshot_id', ctx.snapshot_id))
+                  FROM advisor_conversation_context ctx
+                 WHERE ctx.conversation_id = c.id
+              ), '[]'::json) AS advisor_conversation_context
+         FROM advisor_conversations c
+        WHERE c.id = $1 AND c.user_id = $2`,
+      [req.params.id, req.user.id],
+    );
 
-    if (error && error.code === "PGRST116") {
+    if (!conversation) {
       return res.status(404).json({ error: "Conversation not found" });
     }
-    if (error) throw error;
-    res.json({ conversation: data });
+    res.json({ conversation });
   } catch (err) {
     next(err);
   }
@@ -195,32 +197,37 @@ async function getConversation(req, res, next) {
 // ------------------------------------------------------------------
 async function updateConversation(req, res, next) {
   try {
-    const allowed = {};
-    if (req.body.title !== undefined) allowed.title = req.body.title;
+    const assignments = [];
+    const values = [];
+
+    if (req.body.title !== undefined) {
+      values.push(req.body.title);
+      assignments.push(`title = $${values.length}`);
+    }
     if (req.body.status !== undefined) {
       if (!["active", "archived"].includes(req.body.status)) {
         return res.status(400).json({ error: "status must be 'active' or 'archived'" });
       }
-      allowed.status = req.body.status;
+      values.push(req.body.status);
+      assignments.push(`status = $${values.length}`);
     }
 
-    if (Object.keys(allowed).length === 0) {
+    if (assignments.length === 0) {
       return res.status(400).json({ error: "Nothing to update" });
     }
 
-    const { data, error } = await supabase
-      .from("advisor_conversations")
-      .update(allowed)
-      .eq("id", req.params.id)
-      .eq("user_id", req.user.id)
-      .select()
-      .single();
+    const conversation = await db.one(
+      `UPDATE advisor_conversations
+          SET ${assignments.join(", ")}
+        WHERE id = $${values.length + 1} AND user_id = $${values.length + 2}
+      RETURNING *`,
+      [...values, req.params.id, req.user.id],
+    );
 
-    if (error && error.code === "PGRST116") {
+    if (!conversation) {
       return res.status(404).json({ error: "Conversation not found" });
     }
-    if (error) throw error;
-    res.json({ conversation: data });
+    res.json({ conversation });
   } catch (err) {
     next(err);
   }
@@ -231,13 +238,11 @@ async function updateConversation(req, res, next) {
 // ------------------------------------------------------------------
 async function deleteConversation(req, res, next) {
   try {
-    const { error } = await supabase
-      .from("advisor_conversations")
-      .delete()
-      .eq("id", req.params.id)
-      .eq("user_id", req.user.id);
-
-    if (error) throw error;
+    // Messages and context rows go with it via ON DELETE CASCADE
+    await db.query(
+      `DELETE FROM advisor_conversations WHERE id = $1 AND user_id = $2`,
+      [req.params.id, req.user.id],
+    );
     res.status(204).end();
   } catch (err) {
     next(err);
@@ -259,19 +264,15 @@ async function getMessages(req, res, next) {
     const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
     const before = req.query.before;
 
-    let query = supabase
-      .from("advisor_messages")
-      .select("id, conversation_id, role, content, metadata, tokens_used, created_at")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true })
-      .limit(limit);
-
-    if (before) {
-      query = query.lt("created_at", before);
-    }
-
-    const { data: messages, error } = await query;
-    if (error) throw error;
+    const messages = await db.rows(
+      `SELECT id, conversation_id, role, content, metadata, tokens_used, created_at
+         FROM advisor_messages
+        WHERE conversation_id = $1
+          AND ($2::timestamptz IS NULL OR created_at < $2::timestamptz)
+        ORDER BY created_at ASC
+        LIMIT $3`,
+      [conversationId, before ?? null, limit],
+    );
 
     const nextCursor =
       messages.length === limit
@@ -302,11 +303,11 @@ async function sendMessage(req, res, next) {
     }
 
     // Check AI preference flags before doing any work
-    const { data: prefs } = await supabase
-      .from("user_ai_preferences")
-      .select("enable_ai_advisor, allow_ai_data_access")
-      .eq("user_id", req.user.id)
-      .maybeSingle();
+    const prefs = await db.one(
+      `SELECT enable_ai_advisor, allow_ai_data_access
+         FROM user_ai_preferences WHERE user_id = $1`,
+      [req.user.id],
+    );
 
     // Default to enabled when no row exists (new users inherit opt-out defaults)
     const advisorEnabled = prefs ? prefs.enable_ai_advisor : true;
@@ -321,17 +322,12 @@ async function sendMessage(req, res, next) {
     }
 
     // 1. Persist the user message
-    const { data: userMsg, error: userErr } = await supabase
-      .from("advisor_messages")
-      .insert({
-        conversation_id: conversationId,
-        role: "user",
-        content: content.trim(),
-      })
-      .select()
-      .single();
-
-    if (userErr) throw userErr;
+    const userMsg = await db.one(
+      `INSERT INTO advisor_messages (conversation_id, role, content)
+            VALUES ($1, 'user', $2)
+         RETURNING *`,
+      [conversationId, content.trim()],
+    );
 
     // 2. Build full message history and call the model
     const chatMessages = await buildChatMessages(conversationId, dataAccessAllowed);
@@ -346,29 +342,23 @@ async function sendMessage(req, res, next) {
     const tokensUsed = completion.usage?.total_tokens ?? null;
 
     // 3. Persist the assistant reply
-    const { data: assistantMsg, error: asstErr } = await supabase
-      .from("advisor_messages")
-      .insert({
-        conversation_id: conversationId,
-        role: "assistant",
-        content: assistantContent,
-        metadata: {
-          model: completion.model,
-          finish_reason: choice.finish_reason,
-        },
-        tokens_used: tokensUsed,
-      })
-      .select()
-      .single();
-
-    if (asstErr) throw asstErr;
+    const assistantMsg = await db.one(
+      `INSERT INTO advisor_messages (conversation_id, role, content, metadata, tokens_used)
+            VALUES ($1, 'assistant', $2, $3, $4)
+         RETURNING *`,
+      [
+        conversationId,
+        assistantContent,
+        JSON.stringify({ model: completion.model, finish_reason: choice.finish_reason }),
+        tokensUsed,
+      ],
+    );
 
     // 4. Auto-generate a title from the first exchange if missing
-    const { data: conv } = await supabase
-      .from("advisor_conversations")
-      .select("title")
-      .eq("id", conversationId)
-      .single();
+    const conv = await db.one(
+      `SELECT title FROM advisor_conversations WHERE id = $1`,
+      [conversationId],
+    );
 
     if (!conv?.title) {
       const titleCompletion = await openai.chat.completions.create({
@@ -386,10 +376,10 @@ async function sendMessage(req, res, next) {
 
       const generatedTitle = titleCompletion.choices[0].message.content.trim();
 
-      await supabase
-        .from("advisor_conversations")
-        .update({ title: generatedTitle })
-        .eq("id", conversationId);
+      await db.query(
+        `UPDATE advisor_conversations SET title = $1 WHERE id = $2`,
+        [generatedTitle, conversationId],
+      );
     }
 
     res.status(201).json({ user_message: userMsg, assistant_message: assistantMsg });
@@ -419,14 +409,14 @@ async function addContext(req, res, next) {
       return res.status(404).json({ error: "Snapshot not found" });
     }
 
-    const { data, error } = await supabase
-      .from("advisor_conversation_context")
-      .insert({ conversation_id: conversationId, snapshot_id })
-      .select()
-      .single();
+    const context = await db.one(
+      `INSERT INTO advisor_conversation_context (conversation_id, snapshot_id)
+            VALUES ($1, $2)
+         RETURNING *`,
+      [conversationId, snapshot_id],
+    );
 
-    if (error) throw error;
-    res.status(201).json({ context: data });
+    res.status(201).json({ context });
   } catch (err) {
     next(err);
   }
@@ -443,13 +433,16 @@ async function getContext(req, res, next) {
       return res.status(404).json({ error: "Conversation not found" });
     }
 
-    const { data, error } = await supabase
-      .from("advisor_conversation_context")
-      .select("*, net_worth_snapshots(*, net_worth_snapshot_accounts(*))")
-      .eq("conversation_id", conversationId);
+    const context = await db.rows(
+      `SELECT ctx.*,
+              (SELECT row_to_json(x) FROM (${SNAPSHOT_WITH_ACCOUNTS}
+                 WHERE s.id = ctx.snapshot_id) x) AS net_worth_snapshots
+         FROM advisor_conversation_context ctx
+        WHERE ctx.conversation_id = $1`,
+      [conversationId],
+    );
 
-    if (error) throw error;
-    res.json({ context: data });
+    res.json({ context });
   } catch (err) {
     next(err);
   }

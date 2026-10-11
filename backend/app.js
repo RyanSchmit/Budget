@@ -3,7 +3,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const morgan = require("morgan");
-const auth = require("./middleware/auth");
+const localUser = require("./middleware/localUser");
 const errorHandler = require("./middleware/errorHandler");
 const transactionRoutes = require("./routes/transactions");
 const snapshotRoutes = require("./routes/snapshots");
@@ -55,15 +55,18 @@ app.use(express.json());
 
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
-app.use("/api/transactions", auth, transactionRoutes);
-app.use("/api/snapshots", auth, snapshotRoutes);
-app.use("/api/chat", auth, chatRoutes);
-app.use("/api/advisor", auth, aiLimiter, advisorRoutes);
-app.use("/api/goals", auth, goalRoutes);
-app.use("/api/user", auth, userRoutes);
-app.use("/api/category-limits", auth, categoryLimitRoutes);
-app.use("/api/categorize", auth, aiLimiter, categorizeRoutes);
-app.use("/api/keyword-rules", auth, keywordRulesRoutes);
+// No authentication — every request is attributed to the single local user.
+app.use("/api", localUser);
+
+app.use("/api/transactions", transactionRoutes);
+app.use("/api/snapshots", snapshotRoutes);
+app.use("/api/chat", chatRoutes);
+app.use("/api/advisor", aiLimiter, advisorRoutes);
+app.use("/api/goals", goalRoutes);
+app.use("/api/user", userRoutes);
+app.use("/api/category-limits", categoryLimitRoutes);
+app.use("/api/categorize", aiLimiter, categorizeRoutes);
+app.use("/api/keyword-rules", keywordRulesRoutes);
 
 app.use(errorHandler);
 

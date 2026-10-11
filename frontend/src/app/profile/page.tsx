@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
-import { createClient } from "@/lib/supabase/client";
-import { getUserProfile, updateAiPreferences, AiPreferences } from "@/lib/api/user";
+import {
+  getUserProfile,
+  updateAiPreferences,
+  AiPreferences,
+  UserProfile,
+} from "@/lib/api/user";
 import { setPreferences } from "@/lib/store/preferencesSlice";
 import type { AppDispatch } from "@/lib/store/store";
 import Navbar from "@/app/Navbar";
-import type { User } from "@supabase/supabase-js";
 
 function Toggle({
   checked,
@@ -47,7 +49,7 @@ function Toggle({
 }
 
 export default function ProfilePage() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserProfile["user"] | null>(null);
   const [prefs, setPrefs] = useState<AiPreferences>({
     allow_ai_data_access: true,
     allow_ai_categorization: true,
@@ -58,22 +60,14 @@ export default function ProfilePage() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle");
 
   const dispatch = useDispatch<AppDispatch>();
-  const router = useRouter();
-  const supabase = createClient();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        router.replace("/auth/sign-in");
-        return;
-      }
-      setUser(session.user);
-      getUserProfile()
-        .then(({ preferences }) => {
-          setPrefs(preferences);
-        })
-        .finally(() => setLoading(false));
-    });
+    getUserProfile()
+      .then(({ user: profileUser, preferences }) => {
+        setUser(profileUser);
+        setPrefs(preferences);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const handleToggle = (field: keyof Omit<AiPreferences, "updated_at">) => (val: boolean) => {
@@ -99,12 +93,6 @@ export default function ProfilePage() {
       setSaving(false);
       setTimeout(() => setSaveStatus("idle"), 4000);
     }
-  };
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push("/");
-    router.refresh();
   };
 
   const advisorOff = !prefs.enable_ai_advisor;
@@ -254,22 +242,6 @@ export default function ProfilePage() {
               </span>
             )}
           </div>
-        </section>
-
-        {/* ── Danger Zone ──────────────────────────────────────── */}
-        <section className="rounded-xl border border-red-900/40 bg-red-950/20 p-6">
-          <h2 className="text-sm font-semibold text-red-400 uppercase tracking-wide mb-1">
-            Danger Zone
-          </h2>
-          <p className="text-xs text-gray-400 mb-4">
-            Signing out will end your current session.
-          </p>
-          <button
-            onClick={handleSignOut}
-            className="px-4 py-2 text-sm font-medium rounded border border-red-800 text-red-400 hover:bg-red-900/30 transition-colors"
-          >
-            Sign Out
-          </button>
         </section>
       </main>
     </div>

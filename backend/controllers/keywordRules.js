@@ -1,16 +1,14 @@
-const supabase = require("../config/supabase");
+const db = require("../config/db");
 
 exports.get = async (req, res, next) => {
   try {
-    const { data, error } = await supabase
-      .from("keyword_rules")
-      .select("rules")
-      .eq("user_id", req.user.id)
-      .maybeSingle();
+    const row = await db.one(
+      `SELECT rules FROM keyword_rules WHERE user_id = $1`,
+      [req.user.id],
+    );
 
-    if (error) throw error;
     // Return null when no row exists — frontend will use defaults
-    res.json({ rules: data?.rules ?? null });
+    res.json({ rules: row?.rules ?? null });
   } catch (err) {
     next(err);
   }
@@ -23,14 +21,14 @@ exports.save = async (req, res, next) => {
       return res.status(400).json({ error: "rules must be an array" });
     }
 
-    const { error } = await supabase
-      .from("keyword_rules")
-      .upsert(
-        { user_id: req.user.id, rules },
-        { onConflict: "user_id" },
-      );
+    await db.query(
+      `INSERT INTO keyword_rules (user_id, rules)
+            VALUES ($1, $2)
+       ON CONFLICT (user_id)
+         DO UPDATE SET rules = EXCLUDED.rules`,
+      [req.user.id, JSON.stringify(rules)],
+    );
 
-    if (error) throw error;
     res.json({ ok: true });
   } catch (err) {
     next(err);

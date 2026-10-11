@@ -1,4 +1,4 @@
-const supabase = require("../config/supabase");
+const db = require("../config/db");
 const {
   requireString,
   requireNumber,
@@ -7,24 +7,30 @@ const {
   validate,
 } = require("../utils/validation");
 
+const COLUMNS = "transact_id, user_id, date, description, category, amount, created_at, updated_at";
+
 exports.list = async (req, res, next) => {
   try {
     const { limit, page } = parsePagination(req.query, { defaultLimit: 1000, maxLimit: 1000 });
-    const from  = page * limit;
-    const to    = from + limit - 1;
+    const offset = page * limit;
 
-    const { data, count, error } = await supabase
-      .from("transactions")
-      .select("*", { count: "exact" })
-      .eq("user_id", req.user.id)
-      // Secondary sort on the unique key so pagination is deterministic.
-      // Ordering by `date` alone lets rows sharing a date shuffle between
-      // pages, producing duplicate/missing rows across paged requests.
-      .order("date", { ascending: false })
-      .order("transact_id", { ascending: true })
-      .range(from, to);
+    // Secondary sort on the unique key so pagination is deterministic.
+    // Ordering by `date` alone lets rows sharing a date shuffle between
+    // pages, producing duplicate/missing rows across paged requests.
+    const { rows } = await db.query(
+      `SELECT ${COLUMNS}, count(*) OVER () AS total_count
+         FROM transactions
+        WHERE user_id = $1
+        ORDER BY date DESC, transact_id ASC
+        LIMIT $2 OFFSET $3`,
+      [req.user.id, limit, offset],
+    );
 
-    if (error) throw error;
+    // count(*) OVER () gives the unpaginated total on every row, so the
+    // count comes back in the same round trip. No rows means no matches.
+    const count = rows.length > 0 ? rows[0].total_count : 0;
+    const data = rows.map(({ total_count, ...rest }) => rest);
+
     res.json({ data, count });
   } catch (err) {
     next(err);
@@ -33,17 +39,14 @@ exports.list = async (req, res, next) => {
 
 exports.getById = async (req, res, next) => {
   try {
-    const { data, error } = await supabase
-      .from("transactions")
-      .select("*")
-      .eq("transact_id", req.params.id)
-      .eq("user_id", req.user.id)
-      .single();
+    const data = await db.one(
+      `SELECT ${COLUMNS} FROM transactions WHERE transact_id = $1 AND user_id = $2`,
+      [req.params.id, req.user.id],
+    );
 
-    if (error && error.code === "PGRST116") {
+    if (!data) {
       return res.status(404).json({ error: "Transaction not found" });
     }
-    if (error) throw error;
     res.json(data);
   } catch (err) {
     next(err);
@@ -60,31 +63,27 @@ exports.create = async (req, res, next) => {
       requireNumber(amount, "amount"),
     ])) return;
 
-    const { data, error } = await supabase
-      .from("transactions")
-      .upsert(
-        { user_id: req.user.id, date, description: description.trim(), category: category.trim(), amount },
-        { onConflict: "user_id,date,description,amount", ignoreDuplicates: true },
-      )
-      .select();
-
-    if (error) throw error;
+    const inserted = await db.one(
+      `INSERT INTO transactions (user_id, date, description, category, amount)
+            VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (user_id, date, description, amount) DO NOTHING
+         RETURNING ${COLUMNS}`,
+      [req.user.id, date, description.trim(), category.trim(), amount],
+    );
 
     // Duplicate of an existing transaction — nothing inserted. Return the existing row.
-    if (!data || data.length === 0) {
-      const { data: existing } = await supabase
-        .from("transactions")
-        .select("*")
-        .eq("user_id", req.user.id)
-        .eq("date", date)
-        .eq("description", description.trim())
-        .eq("amount", amount)
-        .limit(1)
-        .single();
+    if (!inserted) {
+      const existing = await db.one(
+        `SELECT ${COLUMNS}
+           FROM transactions
+          WHERE user_id = $1 AND date = $2 AND description = $3 AND amount = $4
+          LIMIT 1`,
+        [req.user.id, date, description.trim(), amount],
+      );
       return res.status(200).json(existing);
     }
 
-    res.status(201).json(data[0]);
+    res.status(201).json(inserted);
   } catch (err) {
     next(err);
   }
@@ -100,18 +99,17 @@ exports.update = async (req, res, next) => {
       requireNumber(amount, "amount"),
     ])) return;
 
-    const { data, error } = await supabase
-      .from("transactions")
-      .update({ date, description: description.trim(), category: category.trim(), amount, updated_at: new Date().toISOString() })
-      .eq("transact_id", req.params.id)
-      .eq("user_id", req.user.id)
-      .select()
-      .single();
+    const data = await db.one(
+      `UPDATE transactions
+          SET date = $1, description = $2, category = $3, amount = $4
+        WHERE transact_id = $5 AND user_id = $6
+      RETURNING ${COLUMNS}`,
+      [date, description.trim(), category.trim(), amount, req.params.id, req.user.id],
+    );
 
-    if (error && error.code === "PGRST116") {
+    if (!data) {
       return res.status(404).json({ error: "Transaction not found" });
     }
-    if (error) throw error;
     res.json(data);
   } catch (err) {
     next(err);
@@ -156,31 +154,41 @@ exports.bulkUpdate = async (req, res, next) => {
       return res.status(400).json({ error: "Validation failed", details: errors });
     }
 
-    const now = new Date().toISOString();
-    const results = await Promise.all(
-      validated.map((t) =>
-        supabase
-          .from("transactions")
-          .update({ date: t.date, description: t.description, category: t.category, amount: t.amount, updated_at: now })
-          .eq("transact_id", t.id)
-          .eq("user_id", req.user.id)
-          .select()
-          .single()
+    const settled = await db.transaction((client) =>
+      Promise.all(
+        validated.map((t) =>
+          client
+            .query(
+              `UPDATE transactions
+                  SET date = $1, description = $2, category = $3, amount = $4
+                WHERE transact_id = $5 AND user_id = $6
+              RETURNING ${COLUMNS}`,
+              [t.date, t.description, t.category, t.amount, t.id, req.user.id],
+            )
+            .then((r) => ({ data: r.rows[0] ?? null }))
+            .catch((error) => ({ error })),
+        ),
       ),
     );
 
-    const failed = results
-      .map((r, i) => (r.error ? { index: i, id: validated[i].id, error: r.error.message } : null))
+    // A row that matched nothing is a failure too — it either does not
+    // exist or belongs to someone else.
+    const failed = settled
+      .map((r, i) =>
+        r.error || !r.data
+          ? { index: i, id: validated[i].id, error: r.error?.message ?? "Transaction not found" }
+          : null,
+      )
       .filter(Boolean);
 
     if (failed.length > 0) {
       return res.status(207).json({
-        data: results.filter((r) => !r.error).map((r) => r.data),
+        data: settled.filter((r) => !r.error && r.data).map((r) => r.data),
         errors: failed,
       });
     }
 
-    res.json({ data: results.map((r) => r.data) });
+    res.json({ data: settled.map((r) => r.data) });
   } catch (err) {
     next(err);
   }
@@ -212,13 +220,7 @@ exports.bulkCreate = async (req, res, next) => {
       if (itemErrors.length > 0) {
         errors.push({ index: i, errors: itemErrors });
       } else {
-        rows.push({
-          user_id: req.user.id,
-          date,
-          description: description.trim(),
-          category: category.trim(),
-          amount,
-        });
+        rows.push([req.user.id, date, description.trim(), category.trim(), amount]);
       }
     }
 
@@ -226,15 +228,29 @@ exports.bulkCreate = async (req, res, next) => {
       return res.status(400).json({ error: "Validation failed", details: errors });
     }
 
-    const { data, error } = await supabase
-      .from("transactions")
-      .upsert(rows, {
-        onConflict: "user_id,date,description,amount",
-        ignoreDuplicates: true,
-      })
-      .select();
+    // Build a single multi-row INSERT: ($1,$2,$3,$4,$5), ($6,$7,...), ...
+    // The casts are required — inside a bare VALUES list Postgres has no
+    // target column to infer parameter types from.
+    const params = rows.flat();
+    const tuples = rows
+      .map(
+        (_, i) =>
+          `($${i * 5 + 1}::uuid, $${i * 5 + 2}::date, $${i * 5 + 3}::text, $${i * 5 + 4}::text, $${i * 5 + 5}::numeric)`,
+      )
+      .join(", ");
 
-    if (error) throw error;
+    // A payload can contain the same transaction twice, which would make
+    // one statement hit the same conflict target rows more than once.
+    // Dedupe within the statement before inserting.
+    const data = await db.rows(
+      `INSERT INTO transactions (user_id, date, description, category, amount)
+       SELECT DISTINCT ON (user_id, date, description, amount) *
+         FROM (VALUES ${tuples}) AS v(user_id, date, description, category, amount)
+       ON CONFLICT (user_id, date, description, amount) DO NOTHING
+         RETURNING ${COLUMNS}`,
+      params,
+    );
+
     res.status(201).json({ data });
   } catch (err) {
     next(err);
@@ -243,18 +259,16 @@ exports.bulkCreate = async (req, res, next) => {
 
 exports.remove = async (req, res, next) => {
   try {
-    const { data, error } = await supabase
-      .from("transactions")
-      .delete()
-      .eq("transact_id", req.params.id)
-      .eq("user_id", req.user.id)
-      .select()
-      .single();
+    const data = await db.one(
+      `DELETE FROM transactions
+             WHERE transact_id = $1 AND user_id = $2
+         RETURNING transact_id`,
+      [req.params.id, req.user.id],
+    );
 
-    if (error && error.code === "PGRST116") {
+    if (!data) {
       return res.status(404).json({ error: "Transaction not found" });
     }
-    if (error) throw error;
     res.status(204).end();
   } catch (err) {
     next(err);

@@ -25,6 +25,10 @@ out/
 .DS_Store
 *.pem
 
+# local database dumps (contain real financial data)
+backups/
+*.sql.gz
+
 # debug
 npm-debug.log*
 yarn-debug.log*
@@ -33,6 +37,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel

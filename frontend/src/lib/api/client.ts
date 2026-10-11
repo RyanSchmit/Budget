@@ -1,17 +1,12 @@
-import { getAccessToken } from "@/lib/api/auth";
-
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
-async function apiFetch<T = unknown>(
+export async function apiFetch<T = unknown>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const token = await getAccessToken();
-
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
-      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
       ...options.headers,
     },

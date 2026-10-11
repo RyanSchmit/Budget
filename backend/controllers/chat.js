@@ -1,51 +1,33 @@
-const supabase = require("../config/supabase");
+const db = require("../config/db");
 
 // ------------------------------------------------------------------
 // Helper: verify the requesting user is a participant of a given
 // conversation. Returns true/false. Used to gate all message ops.
 // ------------------------------------------------------------------
 async function isParticipant(conversationId, userId) {
-  const { data, error } = await supabase
-    .from("conversation_participants")
-    .select("id")
-    .eq("conversation_id", conversationId)
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data !== null;
+  const row = await db.one(
+    `SELECT id FROM conversation_participants
+      WHERE conversation_id = $1 AND user_id = $2`,
+    [conversationId, userId],
+  );
+  return row !== null;
 }
 
 // ------------------------------------------------------------------
 // GET /api/chat/conversations
-// Lists all conversations the authenticated user participates in,
-// ordered by the most recently created first.
+// Lists all conversations the user participates in, ordered by the
+// most recently joined first.
 // ------------------------------------------------------------------
 async function listConversations(req, res, next) {
   try {
-    const userId = req.user.id;
-
-    const { data, error } = await supabase
-      .from("conversation_participants")
-      .select(`
-        joined_at,
-        conversations (
-          id,
-          name,
-          is_group,
-          created_at
-        )
-      `)
-      .eq("user_id", userId)
-      .order("joined_at", { ascending: false });
-
-    if (error) throw error;
-
-    // Flatten the nested join result
-    const conversations = data.map((row) => ({
-      ...row.conversations,
-      joined_at: row.joined_at,
-    }));
+    const conversations = await db.rows(
+      `SELECT c.id, c.name, c.is_group, c.created_at, p.joined_at
+         FROM conversation_participants p
+         JOIN conversations c ON c.id = p.conversation_id
+        WHERE p.user_id = $1
+        ORDER BY p.joined_at DESC`,
+      [req.user.id],
+    );
 
     res.json({ conversations });
   } catch (err) {
@@ -69,27 +51,28 @@ async function createConversation(req, res, next) {
       return res.status(400).json({ error: "participant_ids must be an array" });
     }
 
-    // Create the conversation row
-    const { data: conversation, error: convErr } = await supabase
-      .from("conversations")
-      .insert({ name, is_group })
-      .select()
-      .single();
+    // A conversation with no participants is unusable and unreachable,
+    // so both inserts have to land together.
+    const conversation = await db.transaction(async (client) => {
+      const { rows } = await client.query(
+        `INSERT INTO conversations (name, is_group) VALUES ($1, $2) RETURNING *`,
+        [name, is_group],
+      );
+      const created = rows[0];
 
-    if (convErr) throw convErr;
+      // Build the participant list — always includes the creator
+      const uniqueIds = [...new Set([userId, ...participant_ids])];
+      const params = [created.id, ...uniqueIds];
+      const tuples = uniqueIds.map((_, i) => `($1, $${i + 2})`).join(", ");
 
-    // Build the participant list — always includes the creator
-    const uniqueIds = [...new Set([userId, ...participant_ids])];
-    const participantRows = uniqueIds.map((uid) => ({
-      conversation_id: conversation.id,
-      user_id: uid,
-    }));
+      await client.query(
+        `INSERT INTO conversation_participants (conversation_id, user_id)
+              VALUES ${tuples}`,
+        params,
+      );
 
-    const { error: partErr } = await supabase
-      .from("conversation_participants")
-      .insert(participantRows);
-
-    if (partErr) throw partErr;
+      return created;
+    });
 
     res.status(201).json({ conversation });
   } catch (err) {
@@ -99,33 +82,24 @@ async function createConversation(req, res, next) {
 
 // ------------------------------------------------------------------
 // POST /api/chat/conversations/:conversationId/join
-// Allows the authenticated user to join an existing conversation.
+// Adds the user to an existing conversation.
 // Silently succeeds if they are already a participant (idempotent).
 // ------------------------------------------------------------------
 async function joinConversation(req, res, next) {
   try {
-    const userId = req.user.id;
     const { conversationId } = req.params;
 
     // Verify the conversation exists
-    const { data: conv, error: convErr } = await supabase
-      .from("conversations")
-      .select("id")
-      .eq("id", conversationId)
-      .maybeSingle();
-
-    if (convErr) throw convErr;
+    const conv = await db.one(`SELECT id FROM conversations WHERE id = $1`, [conversationId]);
     if (!conv) return res.status(404).json({ error: "Conversation not found" });
 
-    // Upsert — no-op if the user is already a participant
-    const { error: partErr } = await supabase
-      .from("conversation_participants")
-      .upsert(
-        { conversation_id: conversationId, user_id: userId },
-        { onConflict: "conversation_id,user_id" }
-      );
-
-    if (partErr) throw partErr;
+    // No-op if the user is already a participant
+    await db.query(
+      `INSERT INTO conversation_participants (conversation_id, user_id)
+            VALUES ($1, $2)
+       ON CONFLICT (conversation_id, user_id) DO NOTHING`,
+      [conversationId, req.user.id],
+    );
 
     res.json({ message: "Joined conversation", conversation_id: conversationId });
   } catch (err) {
@@ -135,14 +109,13 @@ async function joinConversation(req, res, next) {
 
 // ------------------------------------------------------------------
 // POST /api/chat/conversations/:conversationId/messages
-// Sends a new message to a conversation. The authenticated user must
-// already be a participant.
+// Sends a new message to a conversation. The user must already be a
+// participant.
 //
 // Body: { content: string }
 // ------------------------------------------------------------------
 async function sendMessage(req, res, next) {
   try {
-    const userId = req.user.id;
     const { conversationId } = req.params;
     const { content } = req.body;
 
@@ -154,22 +127,16 @@ async function sendMessage(req, res, next) {
     }
 
     // Gate: only participants can send messages
-    const member = await isParticipant(conversationId, userId);
-    if (!member) {
+    if (!(await isParticipant(conversationId, req.user.id))) {
       return res.status(403).json({ error: "You are not a participant of this conversation" });
     }
 
-    const { data: message, error } = await supabase
-      .from("messages")
-      .insert({
-        conversation_id: conversationId,
-        sender_id: userId,
-        content: content.trim(),
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
+    const message = await db.one(
+      `INSERT INTO messages (conversation_id, sender_id, content)
+            VALUES ($1, $2, $3)
+         RETURNING *`,
+      [conversationId, req.user.id, content.trim()],
+    );
 
     res.status(201).json({ message });
   } catch (err) {
@@ -188,33 +155,26 @@ async function sendMessage(req, res, next) {
 // ------------------------------------------------------------------
 async function getMessages(req, res, next) {
   try {
-    const userId = req.user.id;
     const { conversationId } = req.params;
 
     const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
     const before = req.query.before; // ISO timestamp cursor
 
     // Gate: only participants can read messages
-    const member = await isParticipant(conversationId, userId);
-    if (!member) {
+    if (!(await isParticipant(conversationId, req.user.id))) {
       return res.status(403).json({ error: "You are not a participant of this conversation" });
     }
 
-    let query = supabase
-      .from("messages")
-      .select("id, conversation_id, sender_id, content, created_at")
-      .eq("conversation_id", conversationId)
-      .is("deleted_at", null)          // exclude soft-deleted
-      .order("created_at", { ascending: false })
-      .limit(limit);
-
-    // Cursor-based pagination: fetch messages older than `before`
-    if (before) {
-      query = query.lt("created_at", before);
-    }
-
-    const { data: messages, error } = await query;
-    if (error) throw error;
+    const messages = await db.rows(
+      `SELECT id, conversation_id, sender_id, content, created_at
+         FROM messages
+        WHERE conversation_id = $1
+          AND deleted_at IS NULL
+          AND ($2::timestamptz IS NULL OR created_at < $2::timestamptz)
+        ORDER BY created_at DESC
+        LIMIT $3`,
+      [conversationId, before ?? null, limit],
+    );
 
     // Provide the next cursor for the caller
     const nextCursor =
@@ -235,32 +195,24 @@ async function getMessages(req, res, next) {
 // ------------------------------------------------------------------
 async function deleteMessage(req, res, next) {
   try {
-    const userId = req.user.id;
     const { messageId } = req.params;
 
     // Fetch the message to verify ownership
-    const { data: message, error: fetchErr } = await supabase
-      .from("messages")
-      .select("id, sender_id, deleted_at")
-      .eq("id", messageId)
-      .maybeSingle();
+    const message = await db.one(
+      `SELECT id, sender_id, deleted_at FROM messages WHERE id = $1`,
+      [messageId],
+    );
 
-    if (fetchErr) throw fetchErr;
     if (!message) return res.status(404).json({ error: "Message not found" });
     if (message.deleted_at !== null) {
       return res.status(410).json({ error: "Message has already been deleted" });
     }
-    if (message.sender_id !== userId) {
+    if (message.sender_id !== req.user.id) {
       return res.status(403).json({ error: "You can only delete your own messages" });
     }
 
     // Perform the soft delete
-    const { error: updateErr } = await supabase
-      .from("messages")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", messageId);
-
-    if (updateErr) throw updateErr;
+    await db.query(`UPDATE messages SET deleted_at = now() WHERE id = $1`, [messageId]);
 
     res.json({ message: "Message deleted", message_id: messageId });
   } catch (err) {
