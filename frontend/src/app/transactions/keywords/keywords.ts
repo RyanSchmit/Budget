@@ -188,16 +188,26 @@ export const defaultKeyWords: Rule[] = [
     keywords: ["Audible", "Books", "Barnes & Noble", "Book", "Kindle", "Library"],
     category: "Books",
   },
-  {
-    keywords: ["Pub", "Brew", "Brewing", "Bar", "Tavern", "Lounge", "Nightclub"],
-    category: "Bars",
-  },
   { keywords: ["Golf", "Topgolf"], category: "Golf" },
   {
-    keywords: ["BEVERAGES & MOR", "Liquor", "Wine", "Spirits", "Total Wine", "BevMo"],
+    keywords: [
+      "BEVERAGES & MOR",
+      "Liquor",
+      "Wine",
+      "Spirits",
+      "Total Wine",
+      "BevMo",
+      "Pub",
+      "Brew",
+      "Brewing",
+      "Bar",
+      "Tavern",
+      "Lounge",
+      "Nightclub",
+    ],
     category: "Alcohol",
   },
-  { keywords: ["Field", "Stadium", "Arena", "Ballpark", "Ticketmaster", "SeatGeek", "StubHub"], category: "Sports Games" },
+  { keywords: ["Field", "Stadium", "Arena", "Ballpark", "Ticketmaster", "SeatGeek", "StubHub"], category: "Entertainment" },
   { keywords: ["Fines", "Fine", "Parking Ticket", "DMV", "Citation"], category: "Traffic Tickets" },
   {
     keywords: [
