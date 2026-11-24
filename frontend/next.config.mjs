@@ -4,6 +4,9 @@ const backendUrl = process.env.BACKEND_API_URL ?? "http://localhost:8000";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    agentUpgrade: "security",
+  },
   async rewrites() {
     return [
       {
